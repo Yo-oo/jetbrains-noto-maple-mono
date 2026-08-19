@@ -1,26 +1,37 @@
-"""Overlay Noto Sans Mono CJK glyphs onto a JetBrains Mono base.
+"""Overlay Noto Sans CJK glyphs onto a JetBrains Mono base.
+
+Source: the regular (non-"Mono") Noto Sans CJK variable font, instantiated
+per weight (download.py's noto_cjk_weight_instance_path) -- NOT the
+dedicated "Mono" release, which only ships Regular/Bold with no usable
+variable-weight version. Despite Noto Sans CJK being a "proportional"
+family, its Han/Hangul/Kana glyphs use the exact same fixed-fullwidth
+convention as the Mono release at every weight (verified: Han advance=1000,
+Hangul=920, identical from wght 100 to 900) -- proportionality in this
+family only affects Latin/punctuation, never CJK ideograph-class scripts.
+Source is glyf (TrueType), not CFF, but the Cu2QuPen conversion step below
+is kept anyway -- verified it passes already-quadratic input through
+unchanged, so this works for either outline format without a branch.
 
 Source-of-truth per codepoint: tc (Traditional Chinese Han shapes + shared
 CJK punctuation/symbols/bopomofo) by default, overridden by jp for kana and
 kr for hangul -- each locale's own release renders those scripts with
-locale-appropriate typography even though all three regional Noto Sans Mono
-CJK files technically contain the full repertoire (verified: all three
-report the same 44810-glyph cmap).
+locale-appropriate typography even though all three regional releases
+technically contain the full repertoire.
 
-Transform: Noto Sans Mono CJK's own fullwidth advance is exactly 2x ITS OWN
-paired Latin advance (1000 vs 500, in a 1000-unitsPerEm font) -- it's
-designed for pairing with a monospace Latin font, just not this specific
-one. JetBrains Mono's Latin advance is 600, so the natural target scale is
-1200/1000 = 1.2x. But that "1000" isn't universal within Noto Sans Mono CJK
-itself: Hangul syllables use a narrower native advance (920, confirmed by
-inspection) than Han/Kana's 1000, by design (Hangul blocks are drawn with
-built-in side padding). Scaling everything by the same 1.2x factor derived
-from Han's 1000 therefore under-fills Hangul's cell, making it visibly
-smaller/lighter than Han at the same nominal advance width -- so scale is
-computed PER GLYPH from that glyph's own source advance, not one constant.
-Vertical centering is likewise computed per SOURCE FONT (tc/jp/kr can each
-carry slightly different hhea ascent/descent), around JetBrains' own
-(ascent+descent)/2, all read from each loaded font's actual tables.
+Transform: Noto's own fullwidth advance is exactly 2x ITS OWN paired Latin
+advance (1000 vs 500, in a 1000-unitsPerEm font) -- it's designed for
+pairing with a monospace Latin font, just not this specific one. JetBrains
+Mono's Latin advance is 600, so the natural target scale is 1200/1000 =
+1.2x. But that "1000" isn't universal within Noto CJK itself: Hangul
+syllables use a narrower native advance (920) than Han/Kana's 1000, by
+design (Hangul blocks are drawn with built-in side padding). Scaling
+everything by the same 1.2x factor derived from Han's 1000 therefore
+under-fills Hangul's cell, making it visibly smaller/lighter than Han at
+the same nominal advance width -- so scale is computed PER GLYPH from that
+glyph's own source advance, not one constant. Vertical centering is
+likewise computed per SOURCE FONT (tc/jp/kr can each carry slightly
+different hhea ascent/descent), around JetBrains' own (ascent+descent)/2,
+all read from each loaded font's actual tables.
 
 Only NEW codepoints are added (skip any codepoint the base already maps),
 matching overlay_latin.py's spirit in the old maple-font fork: never
@@ -39,6 +50,7 @@ correctness fix; tune the constant, don't touch the scale/shift math above.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
@@ -105,6 +117,7 @@ def overlay_cjk(
     jp_path: Path,
     kr_path: Path,
     codepoint_filter: set[int] | None = None,
+    italic_angle: float = 0.0,
 ) -> int:
     """Mutate base in place, adding CJK glyphs at codepoints it doesn't already have.
 
@@ -114,6 +127,13 @@ def overlay_cjk(
     deliberately keeps Noto's full coverage rather than trimming to a
     practical subset, since maximum CJK coverage is the whole point of
     choosing Noto as the source.
+
+    italic_angle (degrees) applies a synthetic horizontal shear on top of the
+    width/vertical transform -- Noto Sans CJK has no italic register at all,
+    so there is no "real" italic CJK to use. This is the same synthesis
+    technique this project's earlier build.py-based pipeline used (a plain
+    skew, not a redrawn italic design); it's a known, accepted compromise for
+    CJK+Latin pairings, not a claim that Noto ships a genuine italic.
 
     Returns the number of codepoints added.
     """
@@ -141,6 +161,7 @@ def overlay_cjk(
     # into the same matrix as the width/vertical transform below.
     fill_tx = target_advance / 2 * (1 - CJK_FILL_RATIO)
     fill_ty = jb_center * (1 - CJK_FILL_RATIO)
+    shear_tan = math.tan(math.radians(italic_angle))
 
     base_glyf = base["glyf"]
     base_hmtx = base["hmtx"]
@@ -176,18 +197,26 @@ def overlay_cjk(
         combined_tx = fill_tx
         combined_ty = y_shift * CJK_FILL_RATIO + fill_ty
 
+        # Fold the italic shear (x depends on y) into the same matrix: a
+        # point's final y (combined_scale*y + combined_ty) contributes
+        # shear_tan times itself to the final x.
+        matrix = (
+            combined_scale,
+            0,
+            combined_scale * shear_tan,
+            combined_scale,
+            combined_tx + combined_ty * shear_tan,
+            combined_ty,
+        )
+
         source_glyph_set = source_font.getGlyphSet()
-        # Noto Sans Mono CJK is CFF (cubic Bezier outlines); glyf only stores
-        # quadratic curves. Feeding cubic curveTo calls straight into
-        # TTGlyphPen produces a glyph most tools (fontTools, HarfBuzz) still
-        # parse without complaint but that isn't a real quadratic outline --
-        # some renderers reject/mis-measure it. Cu2QuPen does the required
-        # cubic-to-quadratic conversion before TTGlyphPen ever sees the data.
+        # Cu2QuPen converts cubic Bezier input (e.g. from a CFF source) to
+        # the quadratic curves glyf requires; verified it passes already-
+        # quadratic input (e.g. this glyf-based Noto Sans CJK VF) through
+        # unchanged, so it's safe to keep unconditionally either way.
         pen = TTGlyphPen(None)
         cu2qu_pen = Cu2QuPen(pen, max_err=1.0, reverse_direction=True)
-        transform_pen = TransformPen(
-            cu2qu_pen, (combined_scale, 0, 0, combined_scale, combined_tx, combined_ty)
-        )
+        transform_pen = TransformPen(cu2qu_pen, matrix)
         source_glyph_set[glyph_name].draw(transform_pen)
         new_glyph = pen.glyph()
         base_glyf[new_name] = new_glyph

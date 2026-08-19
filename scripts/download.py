@@ -8,12 +8,15 @@ constants below -- no vendored/forked upstream code to keep in sync.
 
 from __future__ import annotations
 
+import hashlib
 import zipfile
-from io import BytesIO
 from pathlib import Path
 from urllib.request import urlopen
 
-from scripts.common import UPSTREAM_DIR
+from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
+
+from scripts.common import UPSTREAM_DIR, save_font_atomic
 
 JETBRAINS_MONO_VERSION = "2.304"
 JETBRAINS_MONO_URL = (
@@ -21,57 +24,117 @@ JETBRAINS_MONO_URL = (
     f"v{JETBRAINS_MONO_VERSION}/JetBrainsMono-{JETBRAINS_MONO_VERSION}.zip"
 )
 
-# Noto Sans Mono CJK: the monospace-paired variant of Noto Sans CJK -- its
-# CJK advance width is already an exact 2x multiple of ITS OWN paired Latin
-# advance (1000 vs 500 in a 1000-unitsPerEm font), because it's designed
-# specifically for pairing with a monospace Latin font. Only Regular/Bold
-# are published (no lighter/heavier weights, no italic).
+# Noto Sans CJK (the regular, non-"Mono" release): despite the family being
+# "proportional", its CJK Han/Hangul/Kana glyphs still use the exact same
+# fixed-fullwidth convention as the dedicated Mono release (verified: Han
+# advance=1000, Hangul=920, identical at every weight from 100-900) --
+# proportionality in this family only affects Latin/punctuation, never CJK
+# ideograph-class scripts. Using this instead of the Mono release (which
+# only ships Regular/Bold, no variable version with a usable weight range)
+# gets the full wght 100-900 axis for free, with zero change needed to
+# overlay_cjk.py's per-glyph native-advance scaling.
 NOTO_CJK_RELEASE_TAG = "Sans2.004"
-NOTO_MONO_CJK_ASSETS = {
-    "jp": "11_NotoSansMonoCJKjp.zip",
-    "kr": "12_NotoSansMonoCJKkr.zip",
-    "tc": "14_NotoSansMonoCJKtc.zip",
+NOTO_CJK_VF_ASSET = "02_NotoSansCJK-TTF-VF.zip"
+NOTO_CJK_VF_MEMBERS = {
+    "jp": "Variable/TTF/NotoSansCJKjp-VF.ttf",
+    "kr": "Variable/TTF/NotoSansCJKkr-VF.ttf",
+    "tc": "Variable/TTF/NotoSansCJKtc-VF.ttf",
 }
 
 MAPLE_MONO_VERSION = "7.9"
 MAPLE_MONO_ASSET = "MapleMono-TTF.zip"
 
-WEIGHTS = ("Regular", "Bold")
+WEIGHTS = ("Thin", "ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold")
+WEIGHT_VALUES = {
+    "Thin": 100,
+    "ExtraLight": 200,
+    "Light": 300,
+    "Regular": 400,
+    "Medium": 500,
+    "SemiBold": 600,
+    "Bold": 700,
+    "ExtraBold": 800,
+}
 
 
-def _download_zip_member(url: str, member_name: str, dest_path: Path) -> Path:
+def _cached_zip(url: str) -> Path:
+    """Download url once, cache the whole zip -- callers extract members from it.
+
+    Avoids re-downloading the same multi-locale/multi-weight archive once
+    per member (e.g. 16 weight x style combos would otherwise mean 16 full
+    downloads of the same JetBrains Mono zip).
+    """
+    cache_dir = UPSTREAM_DIR / "_zips"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    name = hashlib.sha1(url.encode()).hexdigest()[:16] + ".zip"
+    zip_path = cache_dir / name
+    if not zip_path.exists():
+        with urlopen(url) as response:
+            zip_path.write_bytes(response.read())
+    return zip_path
+
+
+def _extract_member(url: str, member_name: str, dest_path: Path) -> Path:
     if dest_path.exists():
         return dest_path
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    with urlopen(url) as response:
-        archive_bytes = response.read()
-    with zipfile.ZipFile(BytesIO(archive_bytes)) as archive:
+    zip_path = _cached_zip(url)
+    with zipfile.ZipFile(zip_path) as archive:
         dest_path.write_bytes(archive.read(member_name))
     return dest_path
 
 
-def jetbrains_mono_path(weight: str) -> Path:
-    dest = UPSTREAM_DIR / "jetbrains-mono" / f"JetBrainsMono-{weight}.ttf"
-    return _download_zip_member(
-        JETBRAINS_MONO_URL, f"fonts/ttf/JetBrainsMono-{weight}.ttf", dest
-    )
+def style_suffix(weight: str, italic: bool) -> str:
+    if not italic:
+        return weight
+    return "Italic" if weight == "Regular" else f"{weight}Italic"
 
 
-def noto_mono_cjk_path(locale: str, weight: str) -> Path:
-    asset = NOTO_MONO_CJK_ASSETS[locale]
+def jetbrains_mono_path(weight: str, italic: bool = False) -> Path:
+    suffix = style_suffix(weight, italic)
+    dest = UPSTREAM_DIR / "jetbrains-mono" / f"JetBrainsMono-{suffix}.ttf"
+    return _extract_member(JETBRAINS_MONO_URL, f"fonts/ttf/JetBrainsMono-{suffix}.ttf", dest)
+
+
+def noto_cjk_variable_path(locale: str) -> Path:
     url = (
         f"https://github.com/notofonts/noto-cjk/releases/download/"
-        f"{NOTO_CJK_RELEASE_TAG}/{asset}"
+        f"{NOTO_CJK_RELEASE_TAG}/{NOTO_CJK_VF_ASSET}"
     )
-    member = f"NotoSansMonoCJK{locale}-{weight}.otf"
-    dest = UPSTREAM_DIR / "noto-sans-mono-cjk" / member
-    return _download_zip_member(url, member, dest)
+    member = NOTO_CJK_VF_MEMBERS[locale]
+    dest = UPSTREAM_DIR / "noto-sans-cjk-vf" / f"NotoSansCJK{locale}-VF.ttf"
+    return _extract_member(url, member, dest)
 
 
-def maple_mono_path(weight: str) -> Path:
+def noto_cjk_weight_instance_path(locale: str, weight_value: int) -> Path:
+    """Instantiate one static weight from the Noto Sans CJK variable font, cached."""
+    dest = UPSTREAM_DIR / "noto-sans-cjk-instances" / f"NotoSansCJK{locale}-{weight_value}.ttf"
+    if dest.exists():
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    source = TTFont(str(noto_cjk_variable_path(locale)))
+    instance = instantiateVariableFont(source, {"wght": float(weight_value)}, inplace=False)
+    return save_font_atomic(instance, dest)
+
+
+def maple_mono_path(weight: str, italic: bool = False) -> Path:
+    suffix = style_suffix(weight, italic)
     url = (
         f"https://github.com/subframe7536/maple-font/releases/download/"
         f"v{MAPLE_MONO_VERSION}/{MAPLE_MONO_ASSET}"
     )
-    dest = UPSTREAM_DIR / "maple-mono" / f"MapleMono-{weight}.ttf"
-    return _download_zip_member(url, f"MapleMono-{weight}.ttf", dest)
+    dest = UPSTREAM_DIR / "maple-mono" / f"MapleMono-{suffix}.ttf"
+    return _extract_member(url, f"MapleMono-{suffix}.ttf", dest)
+
+
+NERD_FONT_VERSION = "v3.5.0"
+NERD_FONT_ASSET = "NerdFontsSymbolsOnly.zip"
+
+
+def nerd_font_symbols_path() -> Path:
+    url = (
+        f"https://github.com/ryanoasis/nerd-fonts/releases/download/"
+        f"{NERD_FONT_VERSION}/{NERD_FONT_ASSET}"
+    )
+    dest = UPSTREAM_DIR / "nerd-fonts" / "SymbolsNerdFontMono-Regular.ttf"
+    return _extract_member(url, "SymbolsNerdFontMono-Regular.ttf", dest)
