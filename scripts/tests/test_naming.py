@@ -18,6 +18,15 @@ def _font_with_empty_name_table() -> TTFont:
     return font
 
 
+def _names(font: TTFont) -> dict[int, str]:
+    result = {}
+    for name_id in (1, 2, 4, 5, 6, 16, 17):
+        record = font["name"].getName(name_id, 3, 1, 0x409)
+        if record is not None:
+            result[name_id] = record.toUnicode()
+    return result
+
+
 class StyleSuffixTest(unittest.TestCase):
     def test_regular_upright_has_no_suffix(self):
         self.assertEqual(style_suffix("Regular", italic=False), "Regular")
@@ -38,27 +47,73 @@ class StyleSuffixTest(unittest.TestCase):
 
 
 class ApplyFamilyNameTest(unittest.TestCase):
+    """Matches Maple Mono's own official release name table exactly (see
+    rename.py's docstring) -- verified directly against MapleMono-
+    {Regular,Thin,Bold,BoldItalic,MediumItalic}.ttf during development."""
+
     def test_version_string_credits_all_upstreams(self):
         font = _font_with_empty_name_table()
         upstream_versions = {"JetBrains Mono": "2.304", "Noto Sans CJK": "Sans2.004", "Maple Mono": "7.9"}
-        apply_family_name(font, "Test Family", "Regular", "0.1.0", upstream_versions)
-        version_record = font["name"].getName(5, 3, 1, 0x409)
-        self.assertIsNotNone(version_record)
-        version_string = version_record.toUnicode()
+        apply_family_name(font, "Test Family", "Regular", False, "0.1.0", upstream_versions)
+        version_string = _names(font)[5]
         self.assertIn("0.1.0", version_string)
         for name, ver in upstream_versions.items():
             self.assertIn(name, version_string)
             self.assertIn(ver, version_string)
 
-    def test_family_and_subfamily_names(self):
+    def test_regular_upright(self):
         font = _font_with_empty_name_table()
-        apply_family_name(font, "Test Family", "BoldItalic", "0.1.0", {})
-        self.assertEqual(font["name"].getName(1, 3, 1, 0x409).toUnicode(), "Test Family")
-        self.assertEqual(font["name"].getName(2, 3, 1, 0x409).toUnicode(), "BoldItalic")
-        self.assertEqual(
-            font["name"].getName(4, 3, 1, 0x409).toUnicode(),
-            "Test Family BoldItalic",
-        )
+        apply_family_name(font, "Test Family", "Regular", False, "0.1.0", {})
+        names = _names(font)
+        self.assertEqual(names[1], "Test Family")
+        self.assertEqual(names[2], "Regular")
+        self.assertEqual(names[4], "Test Family Regular")
+        self.assertEqual(names[6], "TestFamily-Regular")
+        self.assertNotIn(16, names, "RIBBI weights don't need typographic name overrides")
+        self.assertNotIn(17, names)
+
+    def test_bold_and_bold_italic_stay_ribbi(self):
+        font = _font_with_empty_name_table()
+        apply_family_name(font, "Test Family", "Bold", False, "0.1.0", {})
+        names = _names(font)
+        self.assertEqual(names[1], "Test Family")
+        self.assertEqual(names[2], "Bold")
+        self.assertEqual(names[4], "Test Family Bold")
+        self.assertNotIn(16, names)
+
+        font2 = _font_with_empty_name_table()
+        apply_family_name(font2, "Test Family", "Bold", True, "0.1.0", {})
+        names2 = _names(font2)
+        self.assertEqual(names2[1], "Test Family")
+        self.assertEqual(names2[2], "Bold Italic")
+        self.assertEqual(names2[4], "Test Family Bold Italic")
+        self.assertEqual(names2[6], "TestFamily-BoldItalic")
+
+    def test_non_ribbi_weight_folds_into_family_name(self):
+        # This is the exact bug report this test guards against: "Medium
+        # Italic" must have a space (matching Maple Mono's own convention),
+        # not "MediumItalic" glued together in the name table -- the
+        # filename convention (no space) is a separate, deliberately
+        # different thing (see style_suffix()).
+        font = _font_with_empty_name_table()
+        apply_family_name(font, "Test Family", "Medium", True, "0.1.0", {})
+        names = _names(font)
+        self.assertEqual(names[1], "Test Family Medium")
+        self.assertEqual(names[2], "Italic")
+        self.assertEqual(names[4], "Test Family Medium Italic")
+        self.assertEqual(names[6], "TestFamily-MediumItalic")
+        self.assertEqual(names[16], "Test Family")
+        self.assertEqual(names[17], "Medium Italic")
+
+    def test_non_ribbi_weight_upright_omits_redundant_regular(self):
+        font = _font_with_empty_name_table()
+        apply_family_name(font, "Test Family", "Thin", False, "0.1.0", {})
+        names = _names(font)
+        self.assertEqual(names[1], "Test Family Thin")
+        self.assertEqual(names[2], "Regular")
+        self.assertEqual(names[4], "Test Family Thin", "must not become 'Test Family Thin Regular'")
+        self.assertEqual(names[16], "Test Family")
+        self.assertEqual(names[17], "Thin")
 
 
 if __name__ == "__main__":

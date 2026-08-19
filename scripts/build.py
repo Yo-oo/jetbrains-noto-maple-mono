@@ -108,7 +108,7 @@ def build_one(
         "Noto Sans CJK": NOTO_CJK_RELEASE_TAG,
         "Maple Mono": MAPLE_MONO_VERSION,
     }
-    apply_family_name(font, family_name, label, project_version, upstream_versions)
+    apply_family_name(font, family_name, weight, italic, project_version, upstream_versions)
 
     out_path = out_dir / f"{file_prefix}-{label}.ttf"
     out_dir.mkdir(parents=True, exist_ok=True)
