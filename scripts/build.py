@@ -29,9 +29,11 @@ from pathlib import Path
 
 from fontTools.ttLib import TTFont
 
-from scripts.common import FONTS_DIR
+from scripts.common import FONTS_DIR, read_project_version
 from scripts.download import (
     JETBRAINS_MONO_VERSION,
+    MAPLE_MONO_VERSION,
+    NOTO_CJK_RELEASE_TAG,
     WEIGHT_VALUES,
     WEIGHTS,
     jetbrains_mono_path,
@@ -78,7 +80,12 @@ def build_one(weight_key: str, italic: bool, out_dir: Path, nerd_font: bool) -> 
         nerd_count = apply_nerd_font(font, nerd_font_symbols_path())
         print(f"[build] {label}: added {nerd_count} Nerd Font icons")
 
-    apply_family_name(font, label, JETBRAINS_MONO_VERSION)
+    upstream_versions = {
+        "JetBrains Mono": JETBRAINS_MONO_VERSION,
+        "Noto Sans CJK": NOTO_CJK_RELEASE_TAG,
+        "Maple Mono": MAPLE_MONO_VERSION,
+    }
+    apply_family_name(font, label, read_project_version(), upstream_versions)
 
     out_path = out_dir / f"JetBrainsNotoMapleMono-{label}.ttf"
     out_dir.mkdir(parents=True, exist_ok=True)

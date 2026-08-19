@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install .
+
+      - name: Build all weights and styles
+        run: |
+          python -m scripts.build \
+            --weights thin,extralight,light,regular,medium,semibold,bold,extrabold \
+            --styles regular,italic \
+            --nerd-font
+
+      - name: Zip fonts
+        run: |
+          cd dist/fonts
+          zip -r ../../JetBrainsNotoMapleMono-${{ github.ref_name }}.zip *.ttf
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: JetBrainsNotoMapleMono-${{ github.ref_name }}.zip
+          generate_release_notes: true
