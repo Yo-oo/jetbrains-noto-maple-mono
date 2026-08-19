@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.vscode/
+
+# Downloaded upstream release assets (fetched by build scripts, not committed)
+dist/upstream/
+
+# Build output
+dist/fonts/
+*.zip
