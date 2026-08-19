@@ -47,13 +47,13 @@ jobs:
         run: |
           cp OFL.txt dist/fonts/OFL.txt
           cd dist/fonts
-          zip -r ../../JetBrainsNotoMapleMono-${{ github.ref_name }}.zip JetBrainsNotoMapleMono-*.ttf OFL.txt
-          zip -r ../../JetBrainsNotoMapleMonoNF-${{ github.ref_name }}.zip JetBrainsNotoMapleMonoNF-*.ttf OFL.txt
+          zip -r ../../JetBrainsNotoMapleMono.zip JetBrainsNotoMapleMono-*.ttf OFL.txt
+          zip -r ../../JetBrainsNotoMapleMonoNF.zip JetBrainsNotoMapleMonoNF-*.ttf OFL.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            JetBrainsNotoMapleMono-${{ github.ref_name }}.zip
-            JetBrainsNotoMapleMonoNF-${{ github.ref_name }}.zip
+            JetBrainsNotoMapleMono.zip
+            JetBrainsNotoMapleMonoNF.zip
           generate_release_notes: true
