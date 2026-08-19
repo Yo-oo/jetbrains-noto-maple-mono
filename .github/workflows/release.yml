@@ -32,10 +32,14 @@ jobs:
             --styles regular,italic \
             --nerd-font
 
+      - name: Verify build output
+        run: python -m scripts.verify_build dist/fonts/*.ttf
+
       - name: Zip fonts
         run: |
+          cp OFL.txt dist/fonts/OFL.txt
           cd dist/fonts
-          zip -r ../../JetBrainsNotoMapleMono-${{ github.ref_name }}.zip *.ttf
+          zip -r ../../JetBrainsNotoMapleMono-${{ github.ref_name }}.zip *.ttf OFL.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
