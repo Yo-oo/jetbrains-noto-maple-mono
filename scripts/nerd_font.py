@@ -9,10 +9,22 @@ overlay_cjk.py/tag_ligatures.py copy artwork from their own donors.
 
 All 10519 glyphs in this release share one fixed advance (2048, in a
 2048-unitsPerEm font) -- deliberately single-cell width for terminal icon
-usage, unlike CJK's 2x-cell convention. Scaled uniformly to the base font's
-own single Latin cell width and vertically centered around the base's own
+usage, unlike CJK's 2x-cell convention. Scaled to the base font's own
+single Latin cell width and vertically centered around the base's own
 (ascent+descent)/2, both read from each font's actual tables (no hardcoded
 assumptions about either font's metrics).
+
+NERD_FONT_SCALE_BOOST (config.json's nerd_font.scale_boost) enlarges icons
+beyond an exact 1:1 fit to the cell, applied around the cell's own center so
+they grow symmetrically rather than toward one edge. This isn't a bug fix
+for the source artwork (measured: these icons already fill ~100% of their
+own native 2048 box width, they're not drawn with generous padding) -- it's
+compensating for a real perceptual effect: sparse icon linework reads as
+visually smaller/lighter than dense text glyphs at the same nominal box
+size, which is why patched Nerd Fonts conventionally scale icons up beyond
+a naive box-fit. Tune by eye, like CJK_FILL_RATIO; icons are expected to
+slightly overflow their nominal single-cell width at higher boost values --
+that's normal for Nerd Font icon rendering, not clipped or misaligned.
 
 Only NEW codepoints are added, matching every other overlay step in this
 project: never touch what the base already covers.
@@ -27,6 +39,10 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
+from scripts.config import load_config
+
+NERD_FONT_SCALE_BOOST = load_config()["nerd_font"]["scale_boost"]
+
 
 def apply_nerd_font(base: TTFont, nerd_font_path: Path) -> int:
     """Mutate base in place, adding Nerd Font icon glyphs. Returns codepoints added."""
@@ -39,10 +55,19 @@ def apply_nerd_font(base: TTFont, nerd_font_path: Path) -> int:
     base_advance = base["hmtx"]["A"][0]
     base_hhea = base["hhea"]
 
-    scale = base_advance / nerd_upm
-    base_center = (base_hhea.ascent + base_hhea.descent) / 2
-    nerd_center = (nerd_hhea.ascent + nerd_hhea.descent) / 2 * scale
-    y_shift = base_center - nerd_center
+    fit_scale = base_advance / nerd_upm
+    base_center_y = (base_hhea.ascent + base_hhea.descent) / 2
+    nerd_center_y = (nerd_hhea.ascent + nerd_hhea.descent) / 2 * fit_scale
+    fit_y_shift = base_center_y - nerd_center_y
+
+    # Compose the exact-fit transform above with a boost around the cell's
+    # own center (base_advance/2 horizontally, base_center_y vertically),
+    # so enlarging doesn't also drift the icon off-center.
+    boost = NERD_FONT_SCALE_BOOST
+    cell_center_x = base_advance / 2
+    scale = fit_scale * boost
+    x_shift = cell_center_x * (1 - boost)
+    y_shift = boost * fit_y_shift + base_center_y * (1 - boost)
 
     base_glyf = base["glyf"]
     base_hmtx = base["hmtx"]
@@ -70,7 +95,7 @@ def apply_nerd_font(base: TTFont, nerd_font_path: Path) -> int:
 
             pen = TTGlyphPen(None)
             cu2qu_pen = Cu2QuPen(pen, max_err=1.0, reverse_direction=True)
-            transform_pen = TransformPen(cu2qu_pen, (scale, 0, 0, scale, 0, y_shift))
+            transform_pen = TransformPen(cu2qu_pen, (scale, 0, 0, scale, x_shift, y_shift))
             nerd_glyph_set[glyph_name].draw(transform_pen)
             base_glyf[new_name] = pen.glyph()
             base_hmtx[new_name] = (base_advance, 0)
