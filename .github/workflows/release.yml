@@ -30,7 +30,8 @@ jobs:
           python -m scripts.build \
             --weights thin,extralight,light,regular,medium,semibold,bold,extrabold \
             --styles regular,italic \
-            --nerd-font
+            --nerd-font \
+            --version "${GITHUB_REF_NAME#v}"
 
       - name: Verify build output
         run: python -m scripts.verify_build dist/fonts/*.ttf

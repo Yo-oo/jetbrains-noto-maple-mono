@@ -19,7 +19,8 @@ only technically needs instantiating once per weight regardless of style.
 Run:
 
     python -m scripts.build [--weights thin,regular,bold] \
-        [--styles regular,italic] [--out dist/fonts] [--nerd-font]
+        [--styles regular,italic] [--out dist/fonts] [--nerd-font] \
+        [--version 0.2.0]
 """
 
 from __future__ import annotations
@@ -64,7 +65,9 @@ CJK_ITALIC_ANGLE = _config["cjk"]["italic_angle"]
 WEIGHT_KEYS = {w.lower(): w for w in WEIGHTS}
 
 
-def build_one(weight_key: str, italic: bool, out_dir: Path, nerd_font: bool) -> Path:
+def build_one(
+    weight_key: str, italic: bool, out_dir: Path, nerd_font: bool, project_version: str
+) -> Path:
     weight = WEIGHT_KEYS[weight_key]
     label = style_suffix(weight, italic)
     print(f"[build] {label}: downloading upstream releases...")
@@ -98,7 +101,7 @@ def build_one(weight_key: str, italic: bool, out_dir: Path, nerd_font: bool) -> 
         "Noto Sans CJK": NOTO_CJK_RELEASE_TAG,
         "Maple Mono": MAPLE_MONO_VERSION,
     }
-    apply_family_name(font, FAMILY_NAME, label, read_project_version(), upstream_versions)
+    apply_family_name(font, FAMILY_NAME, label, project_version, upstream_versions)
 
     out_path = out_dir / f"{FILE_PREFIX}-{label}.ttf"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -114,7 +117,19 @@ def main() -> None:
     parser.add_argument("--styles", default=build_defaults["styles"])
     parser.add_argument("--out", type=Path, default=FONTS_DIR)
     parser.add_argument("--nerd-font", action="store_true", default=build_defaults["nerd_font"])
+    parser.add_argument(
+        "--version",
+        default=None,
+        help=(
+            "Version string embedded in the font's own name table. Defaults to "
+            "pyproject.toml's version (a dev-build placeholder) -- release.yml "
+            "passes the git tag being released instead, so the tag is the single "
+            "source of truth for a real release rather than something that has "
+            "to be kept in sync by hand across two files."
+        ),
+    )
     args = parser.parse_args()
+    project_version = args.version or read_project_version()
 
     weight_keys = [w.strip().lower() for w in args.weights.split(",") if w.strip()]
     unknown = set(weight_keys) - set(WEIGHT_KEYS)
@@ -128,7 +143,7 @@ def main() -> None:
         raise SystemExit(f"unknown style(s): {sorted(unknown_styles)} -- choose from regular, italic")
 
     produced = [
-        build_one(weight_key, style_map[style_key], args.out, args.nerd_font)
+        build_one(weight_key, style_map[style_key], args.out, args.nerd_font, project_version)
         for weight_key in weight_keys
         for style_key in style_keys
     ]
