@@ -47,7 +47,14 @@ from scripts.overlay_cjk import overlay_cjk
 from scripts.rename import apply_family_name
 from scripts.tag_ligatures import apply_tag_ligatures
 
-CJK_ITALIC_ANGLE = 10.0
+# JetBrains Mono's OWN italic angle -- read from JetBrainsMono-Italic.ttf's
+# post.italicAngle (-9.0) and confirmed against hhea's caret slope (~9.0 deg
+# from caretSlopeRise/Run = 1000/158). NOT the same as the old build.py-based
+# pipeline's CJK shear angle (10 deg), which was tuned for Maple Mono's own
+# italic angle -- that number doesn't apply here since JetBrains Mono has a
+# shallower slant. Matching JetBrains' actual angle keeps CJK glyphs' shear
+# visually consistent with the Latin italic they sit next to.
+CJK_ITALIC_ANGLE = 9.0
 WEIGHT_KEYS = {w.lower(): w for w in WEIGHTS}
 
 
