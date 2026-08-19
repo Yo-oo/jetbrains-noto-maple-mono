@@ -1,18 +1,27 @@
 """Overlay Nerd Font's icon glyphs onto a base font.
 
-Source: Nerd Fonts' own pre-patched "JetBrainsMono Nerd Font Mono" release
-(download.py's jetbrains_mono_nerd_font_path()) -- the official font-patcher
-already scaled every icon against JetBrains Mono's own cell metrics using
-its per-icon-set ScaleGroups/Attributes rules, so there's no generic
-donor-to-arbitrary-base fit to approximate here (an earlier version of this
-module copied from NerdFontsSymbolsOnly's family-agnostic "Mono" release
-and applied a hand-tuned global NERD_FONT_SCALE_BOOST to compensate for
-icons looking too small at an exact 1:1 box-fit -- tuned by eye against
-Maple Mono's own NF release). Verified: this donor's head.unitsPerEm,
-hmtx advance, and hhea ascent/descent are identical to our own JetBrains
-Mono base, so glyphs need zero rescaling, only a straight copy -- the exact
-metrics ratio below only kicks in if a future Nerd Fonts/JetBrains Mono
-version pairing drifts apart (should stay ~1.0).
+Source: Nerd Fonts' own pre-patched "JetBrainsMono Nerd Font" release
+(download.py's jetbrains_mono_nerd_font_path(), the plain variant -- NOT
+the "Mono"-suffixed one). The official font-patcher already scaled every
+icon against JetBrains Mono's own cell metrics using its per-icon-set
+ScaleGroups/Attributes rules, so there's no generic donor-to-arbitrary-base
+fit to approximate here (an earlier version of this module copied from
+NerdFontsSymbolsOnly's family-agnostic "Mono" release and applied a
+hand-tuned global NERD_FONT_SCALE_BOOST to compensate for icons looking too
+small -- tuned by eye against Maple Mono's own NF release; a later revision
+switched to this project's own JetBrainsMonoNerdFontMono, which turned out
+to have the same "too small" problem for a different reason, see below).
+
+Advance width is a uniform single cell (matches Latin) either way, but the
+"Mono" variant additionally clamps every icon's ink strictly inside that
+cell (ink/advance ~1.0). The plain variant instead lets icon ink bleed past
+the cell edge on purpose -- Nerd Fonts' own docs describe this as up to
+2-cells-wide/1-cell-high ink with a 1-cell advance, meant to look right
+when the next cell is a literal space (exa, Powerline prompts, etc. rely on
+this). Verified against Maple Mono's own NF release: its icon ink/advance
+ratios (1.49 for fa-github, 1.75 for fa-folder_open_o, ...) match this
+plain variant almost exactly, not the Mono variant's clamped ~1.0 -- Maple
+uses the same overflow-permitting variant, not the strict one.
 
 Only NEW codepoints are added, matching every other overlay step in this
 project: never touch what the base already covers.

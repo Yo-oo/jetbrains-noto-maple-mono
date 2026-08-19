@@ -134,16 +134,26 @@ def maple_mono_path(weight: str, italic: bool = False) -> Path:
 
 NERD_FONT_VERSION = _upstream_versions["nerd_fonts"]
 
-# Nerd Fonts ships a pre-patched "JetBrainsMono Nerd Font Mono" release --
-# icons already scaled by the official font-patcher's per-icon-set
-# ScaleGroups/Attributes rules against JetBrains Mono's OWN cell metrics
-# (not some generic donor scaled to an arbitrary base). Verified: this
-# release's head.unitsPerEm/hmtx advance/hhea ascent+descent are identical
-# to our own jetbrains_mono_path() base, so glyphs drop in with zero
-# rescaling -- no hand-tuned boost constant needed (nerd_font.py used to
-# carry one, tuned by eye against Maple Mono's own NF release, before this
-# switch). Using the "Mono" (fixed single-width icon) variant to match this
-# project's monospace convention, same as the old NerdFontsSymbolsOnly donor.
+# Nerd Fonts ships a pre-patched "JetBrainsMono Nerd Font" release -- icons
+# already scaled by the official font-patcher's per-icon-set ScaleGroups/
+# Attributes rules against JetBrains Mono's OWN cell metrics (not some
+# generic donor scaled to an arbitrary base). Verified: this release's
+# head.unitsPerEm/hmtx advance/hhea ascent+descent are identical to our own
+# jetbrains_mono_path() base, so glyphs drop in with zero rescaling -- no
+# hand-tuned boost constant needed (nerd_font.py used to carry one, tuned by
+# eye against Maple Mono's own NF release, before this switch).
+#
+# Deliberately NOT the "Mono" suffixed variant (JetBrainsMonoNerdFontMono):
+# that one clamps every icon's ink strictly inside its single-cell advance
+# box (ink/advance ratio forced to ~1.0), which reads visually smaller/
+# thinner than icon fonts that let ink overlap past the box edge -- verified
+# against Maple Mono's own NF release, whose icon ink/advance ratios (e.g.
+# 1.49 for fa-github, 1.75 for fa-folder_open_o) match this plain variant
+# almost exactly, not the Mono variant's clamped ~1.0. Advance width is
+# still a uniform single cell either way (600, same as Latin) since the
+# *base* font (JetBrains Mono) is monospace -- "Mono" here only describes
+# whether icon ink is allowed to bleed past that cell, not whether the grid
+# itself is monospace.
 NERD_FONT_ASSET = "JetBrainsMono.zip"
 
 
@@ -152,5 +162,5 @@ def jetbrains_mono_nerd_font_path() -> Path:
         f"https://github.com/ryanoasis/nerd-fonts/releases/download/"
         f"{NERD_FONT_VERSION}/{NERD_FONT_ASSET}"
     )
-    dest = UPSTREAM_DIR / "nerd-fonts" / "JetBrainsMonoNerdFontMono-Regular.ttf"
-    return _extract_member(url, "JetBrainsMonoNerdFontMono-Regular.ttf", dest)
+    dest = UPSTREAM_DIR / "nerd-fonts" / "JetBrainsMonoNerdFont-Regular.ttf"
+    return _extract_member(url, "JetBrainsMonoNerdFont-Regular.ttf", dest)
