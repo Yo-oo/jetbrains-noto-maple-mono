@@ -1,0 +1,45 @@
+name: Check upstream versions
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # every Monday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install .
+
+      - name: Check for newer upstream releases
+        id: check
+        run: |
+          python -m scripts.check_upstream_versions > report.txt 2>&1 || echo "outdated=true" >> "$GITHUB_OUTPUT"
+          cat report.txt
+
+      - name: Open an issue if anything is outdated
+        if: steps.check.outputs.outdated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            cat report.txt
+            echo ""
+            echo "This project pins exact upstream versions for reproducible builds (see scripts/download.py). Bump the relevant version constant(s), rebuild, and verify with \`python -m scripts.verify_build\` before merging -- an upstream release can change enough (renamed assets, a different weight range) that this project's overlay assumptions deserve a second look, not just a version bump."
+          } > issue-body.txt
+          gh issue create --title "Newer upstream release(s) available" --body-file issue-body.txt
