@@ -51,7 +51,6 @@ from scripts.tag_ligatures import apply_tag_ligatures
 
 _config = load_config()
 FAMILY_NAME = _config["family_name"]
-FILE_PREFIX = FAMILY_NAME.replace(" ", "")
 
 # JetBrains Mono's OWN italic angle -- read from JetBrainsMono-Italic.ttf's
 # post.italicAngle (-9.0) and confirmed against hhea's caret slope (~9.0 deg
@@ -91,6 +90,14 @@ def build_one(
     tag_count = apply_tag_ligatures(font, maple_path)
     print(f"[build] {label}: grafted {tag_count} tags")
 
+    # NF and non-NF are separate, side-by-side-installable variants -- like
+    # every other Nerd Font patched font, appending " NF" to the family name
+    # (rather than silently baking icons into the same name) is what lets a
+    # font picker/terminal config tell them apart, and lets a user keep both
+    # installed if they use icons in some apps but not others.
+    family_name = f"{FAMILY_NAME} NF" if nerd_font else FAMILY_NAME
+    file_prefix = family_name.replace(" ", "")
+
     if nerd_font:
         print(f"[build] {label}: patching Nerd Font icons...")
         nerd_count = apply_nerd_font(font, nerd_font_symbols_path())
@@ -101,9 +108,9 @@ def build_one(
         "Noto Sans CJK": NOTO_CJK_RELEASE_TAG,
         "Maple Mono": MAPLE_MONO_VERSION,
     }
-    apply_family_name(font, FAMILY_NAME, label, project_version, upstream_versions)
+    apply_family_name(font, family_name, label, project_version, upstream_versions)
 
-    out_path = out_dir / f"{FILE_PREFIX}-{label}.ttf"
+    out_path = out_dir / f"{file_prefix}-{label}.ttf"
     out_dir.mkdir(parents=True, exist_ok=True)
     font.save(str(out_path))
     print(f"[build] {label}: saved {out_path}")

@@ -25,7 +25,14 @@ jobs:
       - name: Install dependencies
         run: pip install .
 
-      - name: Build all weights and styles
+      - name: Build all weights and styles (plain, no icons)
+        run: |
+          python -m scripts.build \
+            --weights thin,extralight,light,regular,medium,semibold,bold,extrabold \
+            --styles regular,italic \
+            --version "${GITHUB_REF_NAME#v}"
+
+      - name: Build all weights and styles (NF, with Nerd Font icons)
         run: |
           python -m scripts.build \
             --weights thin,extralight,light,regular,medium,semibold,bold,extrabold \
@@ -40,10 +47,13 @@ jobs:
         run: |
           cp OFL.txt dist/fonts/OFL.txt
           cd dist/fonts
-          zip -r ../../JetBrainsNotoMapleMono-${{ github.ref_name }}.zip *.ttf OFL.txt
+          zip -r ../../JetBrainsNotoMapleMono-${{ github.ref_name }}.zip JetBrainsNotoMapleMono-*.ttf OFL.txt
+          zip -r ../../JetBrainsNotoMapleMonoNF-${{ github.ref_name }}.zip JetBrainsNotoMapleMonoNF-*.ttf OFL.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          files: JetBrainsNotoMapleMono-${{ github.ref_name }}.zip
+          files: |
+            JetBrainsNotoMapleMono-${{ github.ref_name }}.zip
+            JetBrainsNotoMapleMonoNF-${{ github.ref_name }}.zip
           generate_release_notes: true
