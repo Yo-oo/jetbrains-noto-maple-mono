@@ -30,6 +30,7 @@ from pathlib import Path
 from fontTools.ttLib import TTFont
 
 from scripts.common import FONTS_DIR, read_project_version
+from scripts.config import load_config
 from scripts.download import (
     JETBRAINS_MONO_VERSION,
     MAPLE_MONO_VERSION,
@@ -47,14 +48,19 @@ from scripts.overlay_cjk import overlay_cjk
 from scripts.rename import apply_family_name
 from scripts.tag_ligatures import apply_tag_ligatures
 
+_config = load_config()
+FAMILY_NAME = _config["family_name"]
+FILE_PREFIX = FAMILY_NAME.replace(" ", "")
+
 # JetBrains Mono's OWN italic angle -- read from JetBrainsMono-Italic.ttf's
 # post.italicAngle (-9.0) and confirmed against hhea's caret slope (~9.0 deg
 # from caretSlopeRise/Run = 1000/158). NOT the same as the old build.py-based
 # pipeline's CJK shear angle (10 deg), which was tuned for Maple Mono's own
 # italic angle -- that number doesn't apply here since JetBrains Mono has a
 # shallower slant. Matching JetBrains' actual angle keeps CJK glyphs' shear
-# visually consistent with the Latin italic they sit next to.
-CJK_ITALIC_ANGLE = 9.0
+# visually consistent with the Latin italic they sit next to. Pinned in
+# config.json (cjk.italic_angle).
+CJK_ITALIC_ANGLE = _config["cjk"]["italic_angle"]
 WEIGHT_KEYS = {w.lower(): w for w in WEIGHTS}
 
 
@@ -92,9 +98,9 @@ def build_one(weight_key: str, italic: bool, out_dir: Path, nerd_font: bool) -> 
         "Noto Sans CJK": NOTO_CJK_RELEASE_TAG,
         "Maple Mono": MAPLE_MONO_VERSION,
     }
-    apply_family_name(font, label, read_project_version(), upstream_versions)
+    apply_family_name(font, FAMILY_NAME, label, read_project_version(), upstream_versions)
 
-    out_path = out_dir / f"JetBrainsNotoMapleMono-{label}.ttf"
+    out_path = out_dir / f"{FILE_PREFIX}-{label}.ttf"
     out_dir.mkdir(parents=True, exist_ok=True)
     font.save(str(out_path))
     print(f"[build] {label}: saved {out_path}")
@@ -102,11 +108,12 @@ def build_one(weight_key: str, italic: bool, out_dir: Path, nerd_font: bool) -> 
 
 
 def main() -> None:
+    build_defaults = _config["build_defaults"]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--weights", default="regular,bold")
-    parser.add_argument("--styles", default="regular")
+    parser.add_argument("--weights", default=build_defaults["weights"])
+    parser.add_argument("--styles", default=build_defaults["styles"])
     parser.add_argument("--out", type=Path, default=FONTS_DIR)
-    parser.add_argument("--nerd-font", action="store_true")
+    parser.add_argument("--nerd-font", action="store_true", default=build_defaults["nerd_font"])
     args = parser.parse_args()
 
     weight_keys = [w.strip().lower() for w in args.weights.split(",") if w.strip()]

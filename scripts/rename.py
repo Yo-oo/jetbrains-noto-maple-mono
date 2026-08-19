@@ -9,30 +9,29 @@ from __future__ import annotations
 
 from fontTools.ttLib import TTFont
 
-FAMILY_NAME = "JetBrains Noto Maple Mono"
-
 
 def apply_family_name(
     font: TTFont,
+    family_name: str,
     weight: str,
     project_version: str,
     upstream_versions: dict[str, str],
 ) -> None:
     """Set name table records. upstream_versions e.g. {"JetBrains Mono": "2.304", ...}."""
     subfamily = weight
-    full_name = f"{FAMILY_NAME} {subfamily}"
-    postscript_name = f"{FAMILY_NAME.replace(' ', '')}-{subfamily.replace(' ', '')}"
+    full_name = f"{family_name} {subfamily}"
+    postscript_name = f"{family_name.replace(' ', '')}-{subfamily.replace(' ', '')}"
     credits = "; ".join(f"{name} {ver}" for name, ver in upstream_versions.items())
     version_string = f"Version {project_version} ({credits})"
 
     values = {
-        1: FAMILY_NAME,
+        1: family_name,
         2: subfamily,
         3: f"{project_version};{postscript_name}",
         4: full_name,
         5: version_string,
         6: postscript_name,
-        16: FAMILY_NAME,
+        16: family_name,
         17: subfamily,
     }
     name_table = font["name"]

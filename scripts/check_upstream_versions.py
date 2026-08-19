@@ -1,9 +1,10 @@
 """Check whether any pinned upstream release has a newer version available.
 
-This project deliberately pins exact upstream versions (download.py's
-JETBRAINS_MONO_VERSION/NOTO_CJK_RELEASE_TAG/MAPLE_MONO_VERSION/
-NERD_FONT_VERSION) for reproducible builds -- nothing auto-updates them.
-This script is the other half of that tradeoff: a cheap way to find out
+This project deliberately pins exact upstream versions (config.json's
+upstream_versions, surfaced as download.py's JETBRAINS_MONO_VERSION/
+NOTO_CJK_RELEASE_TAG/MAPLE_MONO_VERSION/NERD_FONT_VERSION) for reproducible
+builds -- nothing auto-updates them. This script is the other half of that
+tradeoff: a cheap way to find out
 when a bump is available, without silently rebuilding against a moving
 target. Wired into a scheduled workflow that opens a GitHub Issue rather
 than auto-bumping, since a new upstream release could change enough (a

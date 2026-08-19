@@ -1,9 +1,11 @@
 """Fetch and cache the three upstream releases this project layers together.
 
 Every function downloads once and reuses the cached file on later runs
-(cache lives under dist/upstream/, which .gitignore excludes). Re-running
-the pipeline against a newer upstream version is just bumping the version
-constants below -- no vendored/forked upstream code to keep in sync.
+(cache lives under dist/upstream/, which .gitignore excludes). Version
+pins live in config.json (single source of truth, also read by
+check_upstream_versions.py) -- re-running the pipeline against a newer
+upstream version is just bumping the relevant version there, no vendored/
+forked upstream code to keep in sync.
 """
 
 from __future__ import annotations
@@ -17,8 +19,11 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 
 from scripts.common import UPSTREAM_DIR, save_font_atomic
+from scripts.config import load_config
 
-JETBRAINS_MONO_VERSION = "2.304"
+_upstream_versions = load_config()["upstream_versions"]
+
+JETBRAINS_MONO_VERSION = _upstream_versions["jetbrains_mono"]
 JETBRAINS_MONO_URL = (
     f"https://github.com/JetBrains/JetBrainsMono/releases/download/"
     f"v{JETBRAINS_MONO_VERSION}/JetBrainsMono-{JETBRAINS_MONO_VERSION}.zip"
@@ -33,7 +38,7 @@ JETBRAINS_MONO_URL = (
 # only ships Regular/Bold, no variable version with a usable weight range)
 # gets the full wght 100-900 axis for free, with zero change needed to
 # overlay_cjk.py's per-glyph native-advance scaling.
-NOTO_CJK_RELEASE_TAG = "Sans2.004"
+NOTO_CJK_RELEASE_TAG = _upstream_versions["noto_cjk_release_tag"]
 NOTO_CJK_VF_ASSET = "02_NotoSansCJK-TTF-VF.zip"
 NOTO_CJK_VF_MEMBERS = {
     "jp": "Variable/TTF/NotoSansCJKjp-VF.ttf",
@@ -41,7 +46,7 @@ NOTO_CJK_VF_MEMBERS = {
     "tc": "Variable/TTF/NotoSansCJKtc-VF.ttf",
 }
 
-MAPLE_MONO_VERSION = "7.9"
+MAPLE_MONO_VERSION = _upstream_versions["maple_mono"]
 MAPLE_MONO_ASSET = "MapleMono-TTF.zip"
 
 WEIGHTS = ("Thin", "ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold")
@@ -127,7 +132,7 @@ def maple_mono_path(weight: str, italic: bool = False) -> Path:
     return _extract_member(url, f"MapleMono-{suffix}.ttf", dest)
 
 
-NERD_FONT_VERSION = "v3.5.0"
+NERD_FONT_VERSION = _upstream_versions["nerd_fonts"]
 NERD_FONT_ASSET = "NerdFontsSymbolsOnly.zip"
 
 

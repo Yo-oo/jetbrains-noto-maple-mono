@@ -58,9 +58,13 @@ from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
+from scripts.config import load_config
+
 # Shrink toward cell center by this fraction (1.0 = no shrink) -- see module
 # docstring. Tune by eye against a reference font; not derived from metrics.
-CJK_FILL_RATIO = 0.88
+# Pinned in config.json (cjk.fill_ratio), not here, so every tunable knob
+# this project exposes lives in one place.
+CJK_FILL_RATIO = load_config()["cjk"]["fill_ratio"]
 
 # (start, end) inclusive Unicode ranges, in override-priority order applied
 # AFTER the tc-wide base pass.
