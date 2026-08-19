@@ -6,7 +6,7 @@ import unittest
 
 from fontTools.ttLib import TTFont
 
-from scripts.download import jetbrains_mono_path, nerd_font_symbols_path
+from scripts.download import jetbrains_mono_nerd_font_path, jetbrains_mono_path
 from scripts.nerd_font import apply_nerd_font
 
 # A handful of well-known, stable Nerd Font icon codepoints (git, apple,
@@ -19,7 +19,7 @@ class NerdFontTest(unittest.TestCase):
     def setUpClass(cls):
         cls.font = TTFont(str(jetbrains_mono_path("Regular")))
         cls.latin_advance = cls.font["hmtx"]["A"][0]
-        cls.added = apply_nerd_font(cls.font, nerd_font_symbols_path())
+        cls.added = apply_nerd_font(cls.font, jetbrains_mono_nerd_font_path())
 
     def test_adds_a_large_number_of_icons(self):
         # The Mono symbols release ships 10000+ icons; a low count would

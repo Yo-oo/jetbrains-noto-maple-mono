@@ -10,9 +10,6 @@
     "fill_ratio": 0.88,
     "italic_angle": 9.0
   },
-  "nerd_font": {
-    "scale_boost": 1.45
-  },
   "build_defaults": {
     "weights": "regular,bold",
     "styles": "regular",

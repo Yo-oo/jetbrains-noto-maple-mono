@@ -5,7 +5,7 @@ description = "JetBrains Mono + Noto Sans CJK + Maple Mono's tag ligatures, fuse
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fonttools~=4.63",
+    "fonttools[woff]~=4.63",
 ]
 
 [dependency-groups]

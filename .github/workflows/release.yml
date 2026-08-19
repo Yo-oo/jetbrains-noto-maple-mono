@@ -49,6 +49,8 @@ jobs:
           cd dist/fonts
           zip -r ../../JetBrainsNotoMapleMono.zip JetBrainsNotoMapleMono-*.ttf OFL.txt
           zip -r ../../JetBrainsNotoMapleMonoNF.zip JetBrainsNotoMapleMonoNF-*.ttf OFL.txt
+          zip -r ../../JetBrainsNotoMapleMono-Woff2.zip JetBrainsNotoMapleMono-*.woff2 OFL.txt
+          zip -r ../../JetBrainsNotoMapleMonoNF-Woff2.zip JetBrainsNotoMapleMonoNF-*.woff2 OFL.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -56,4 +58,6 @@ jobs:
           files: |
             JetBrainsNotoMapleMono.zip
             JetBrainsNotoMapleMonoNF.zip
+            JetBrainsNotoMapleMono-Woff2.zip
+            JetBrainsNotoMapleMonoNF-Woff2.zip
           generate_release_notes: true

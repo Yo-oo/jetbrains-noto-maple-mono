@@ -133,13 +133,24 @@ def maple_mono_path(weight: str, italic: bool = False) -> Path:
 
 
 NERD_FONT_VERSION = _upstream_versions["nerd_fonts"]
-NERD_FONT_ASSET = "NerdFontsSymbolsOnly.zip"
+
+# Nerd Fonts ships a pre-patched "JetBrainsMono Nerd Font Mono" release --
+# icons already scaled by the official font-patcher's per-icon-set
+# ScaleGroups/Attributes rules against JetBrains Mono's OWN cell metrics
+# (not some generic donor scaled to an arbitrary base). Verified: this
+# release's head.unitsPerEm/hmtx advance/hhea ascent+descent are identical
+# to our own jetbrains_mono_path() base, so glyphs drop in with zero
+# rescaling -- no hand-tuned boost constant needed (nerd_font.py used to
+# carry one, tuned by eye against Maple Mono's own NF release, before this
+# switch). Using the "Mono" (fixed single-width icon) variant to match this
+# project's monospace convention, same as the old NerdFontsSymbolsOnly donor.
+NERD_FONT_ASSET = "JetBrainsMono.zip"
 
 
-def nerd_font_symbols_path() -> Path:
+def jetbrains_mono_nerd_font_path() -> Path:
     url = (
         f"https://github.com/ryanoasis/nerd-fonts/releases/download/"
         f"{NERD_FONT_VERSION}/{NERD_FONT_ASSET}"
     )
-    dest = UPSTREAM_DIR / "nerd-fonts" / "SymbolsNerdFontMono-Regular.ttf"
-    return _extract_member(url, "SymbolsNerdFontMono-Regular.ttf", dest)
+    dest = UPSTREAM_DIR / "nerd-fonts" / "JetBrainsMonoNerdFontMono-Regular.ttf"
+    return _extract_member(url, "JetBrainsMonoNerdFontMono-Regular.ttf", dest)

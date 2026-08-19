@@ -38,9 +38,9 @@ from scripts.download import (
     NOTO_CJK_RELEASE_TAG,
     WEIGHT_VALUES,
     WEIGHTS,
+    jetbrains_mono_nerd_font_path,
     jetbrains_mono_path,
     maple_mono_path,
-    nerd_font_symbols_path,
     noto_cjk_weight_instance_path,
     style_suffix,
 )
@@ -100,7 +100,7 @@ def build_one(
 
     if nerd_font:
         print(f"[build] {label}: patching Nerd Font icons...")
-        nerd_count = apply_nerd_font(font, nerd_font_symbols_path())
+        nerd_count = apply_nerd_font(font, jetbrains_mono_nerd_font_path())
         print(f"[build] {label}: added {nerd_count} Nerd Font icons")
 
     upstream_versions = {
@@ -110,10 +110,18 @@ def build_one(
     }
     apply_family_name(font, family_name, weight, italic, project_version, upstream_versions)
 
-    out_path = out_dir / f"{file_prefix}-{label}.ttf"
     out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{file_prefix}-{label}.ttf"
     font.save(str(out_path))
     print(f"[build] {label}: saved {out_path}")
+
+    # Same table data, different container: flavor="woff2" only changes how
+    # save() packs the sfnt (brotli-compressed, web-oriented), so this is a
+    # second save() on the same already-built font object, not a rebuild.
+    woff2_path = out_dir / f"{file_prefix}-{label}.woff2"
+    font.flavor = "woff2"
+    font.save(str(woff2_path))
+    print(f"[build] {label}: saved {woff2_path}")
     return out_path
 
 
