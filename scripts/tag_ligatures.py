@@ -31,11 +31,15 @@ for JetBrains Mono's (unitsPerEm=1000, Latin advance=600, hhea ascent/descent
 independently chosen, since Maple was originally designed to line up with
 JetBrains Mono.
 
-Trigger case: matches Maple's own default calt behavior -- exact uppercase
-only (`[INFO]`, not `[info]`/`[Info]`), confirmed via hb-shape against the
-official release with no extra features enabled. Case-insensitive matching
-is a separate opt-in stylistic set in Maple (ss03) this project doesn't
-graft in v1.
+Trigger case: `calt` matches Maple's own default behavior -- exact
+uppercase only (`[INFO]`, not `[info]`/`[Info]`), confirmed via hb-shape
+against the official release with no extra features enabled. A second,
+separate opt-in `ss03` feature (matching Maple's own use of that same tag
+for the same purpose -- confirmed JetBrains Mono doesn't use ss03 for
+anything of its own, so there's no collision) additionally matches any
+letter case per position (`[info]`, `[Info]`, `[INFO]`, ...), same artwork,
+same mechanism, just per-letter `[X x]` classes instead of literal
+uppercase glyphs.
 """
 
 from __future__ import annotations
@@ -61,7 +65,12 @@ def _discover_tags(maple_font: TTFont) -> list[tuple[str, str]]:
     return tags
 
 
-def _build_fea(tags: list[tuple[str, str]]) -> str:
+def _tag_lookups(tags: list[tuple[str, str]], prefix: str, case_insensitive: bool) -> tuple[list[str], list[str]]:
+    """Return (fea_lines, lookup_names) for one feature's worth of tag rules.
+
+    case_insensitive=False emits literal uppercase-letter sequences (calt);
+    True emits [Xx]-style two-glyph classes per letter (ss03).
+    """
     # Longest-word-first: a shorter tag sharing a letter prefix with a longer
     # one must not get first chance at the shared glyphs (mirrors
     # overlay_ligatures.py's ordering rationale in the old maple-font fork).
@@ -69,12 +78,15 @@ def _build_fea(tags: list[tuple[str, str]]) -> str:
     lines = []
     lookup_names: list[str] = []
     for liga_name, word in tags:
-        letters = [letter.upper() for letter in word]
+        if case_insensitive:
+            letters = [f"[{letter.upper()} {letter.lower()}]" for letter in word]
+        else:
+            letters = [letter.upper() for letter in word]
         sequence = ["bracketleft", *letters, "bracketright"]
         n = len(sequence)
         base_id = liga_name.replace(".", "_")
         for i in range(n):
-            lk_name = f"tag_{base_id}_{i}"
+            lk_name = f"{prefix}_{base_id}_{i}"
             lookup_names.append(lk_name)
             backtrack = " ".join(["SPC"] * i)
             lookahead = " ".join(sequence[i + 1 :])
@@ -84,12 +96,24 @@ def _build_fea(tags: list[tuple[str, str]]) -> str:
             lines.append(f"lookup {lk_name} {{")
             lines.append(f"    sub {' '.join(parts)} by {output};")
             lines.append(f"}} {lk_name};")
-    fea = "\n".join(lines)
+    return lines, lookup_names
+
+
+def _build_fea(tags: list[tuple[str, str]]) -> tuple[str, list[str], list[str]]:
+    """Return (fea_source, calt_lookup_names, ss03_lookup_names)."""
+    calt_lines, calt_names = _tag_lookups(tags, "tagc", case_insensitive=False)
+    ss03_lines, ss03_names = _tag_lookups(tags, "tags", case_insensitive=True)
+
+    fea = "\n".join(calt_lines) + "\n" + "\n".join(ss03_lines)
     fea += "\nfeature calt {\n"
-    for lk_name in lookup_names:
+    for lk_name in calt_names:
         fea += f"    lookup {lk_name};\n"
     fea += "} calt;\n"
-    return fea
+    fea += "\nfeature ss03 {\n"
+    for lk_name in ss03_names:
+        fea += f"    lookup {lk_name};\n"
+    fea += "} ss03;\n"
+    return fea, calt_names, ss03_names
 
 
 def _shift_records(container, offset: int) -> None:
@@ -152,18 +176,22 @@ def apply_tag_ligatures(base: TTFont, maple_path: Path) -> int:
     # Step 2: compile fresh rules in an isolated scratch copy (feaLib's
     # addOpenTypeFeatures replaces GSUB wholesale), then transplant.
     scratch = copy.deepcopy(base)
-    fea = _build_fea(tags)
+    fea, _calt_names, _ss03_names = _build_fea(tags)
     addOpenTypeFeatures(scratch, io.StringIO(fea))
 
     scratch_gsub = scratch["GSUB"].table
     scratch_lookups = scratch_gsub.LookupList.Lookup
     scratch_calt_indices = None
+    scratch_ss03_fr = None
     for fr in scratch_gsub.FeatureList.FeatureRecord:
         if fr.FeatureTag == "calt":
             scratch_calt_indices = list(fr.Feature.LookupListIndex)
-            break
+        elif fr.FeatureTag == "ss03":
+            scratch_ss03_fr = fr
     if scratch_calt_indices is None:
         raise RuntimeError("scratch compile produced no calt feature")
+    if scratch_ss03_fr is None:
+        raise RuntimeError("scratch compile produced no ss03 feature")
 
     # HarfBuzz applies GSUB lookups in ascending GLOBAL LookupList index
     # order, not a feature's own LookupListIndex array order -- so these new
@@ -185,9 +213,11 @@ def apply_tag_ligatures(base: TTFont, maple_path: Path) -> int:
         fr.Feature.LookupListIndex = [i + new_count for i in fr.Feature.LookupListIndex]
         fr.Feature.LookupCount = len(fr.Feature.LookupListIndex)
 
+    base_calt_index = None
     base_calt_fr = None
-    for fr in base_gsub.FeatureList.FeatureRecord:
+    for index, fr in enumerate(base_gsub.FeatureList.FeatureRecord):
         if fr.FeatureTag == "calt":
+            base_calt_index = index
             base_calt_fr = fr
             break
     if base_calt_fr is None:
@@ -196,5 +226,27 @@ def apply_tag_ligatures(base: TTFont, maple_path: Path) -> int:
         base_calt_fr.Feature.LookupListIndex
     )
     base_calt_fr.Feature.LookupCount = len(base_calt_fr.Feature.LookupListIndex)
+
+    # ss03: base has no existing ss03 feature (confirmed JetBrains Mono
+    # doesn't use that tag for anything), so append a brand new
+    # FeatureRecord rather than merge -- its lookup indices are already
+    # correct as-is, since scratch's own lookups occupy the same front
+    # block of base's LookupList (0-based, no shift needed). A new
+    # FeatureRecord alone isn't reachable by any shaper until it's also
+    # registered in every ScriptList/LangSys that already offers calt --
+    # otherwise it compiles fine but silently never fires.
+    new_ss03_fr = copy.deepcopy(scratch_ss03_fr)
+    base_gsub.FeatureList.FeatureRecord.append(new_ss03_fr)
+    ss03_index = len(base_gsub.FeatureList.FeatureRecord) - 1
+    base_gsub.FeatureList.FeatureCount = len(base_gsub.FeatureList.FeatureRecord)
+
+    for script_record in base_gsub.ScriptList.ScriptRecord:
+        script = script_record.Script
+        lang_systems = [script.DefaultLangSys] if script.DefaultLangSys else []
+        lang_systems += [lsr.LangSys for lsr in script.LangSysRecord]
+        for lang_sys in lang_systems:
+            if base_calt_index in lang_sys.FeatureIndex:
+                lang_sys.FeatureIndex.append(ss03_index)
+                lang_sys.FeatureCount = len(lang_sys.FeatureIndex)
 
     return len(tags)
