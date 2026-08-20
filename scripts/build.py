@@ -46,7 +46,7 @@ from scripts.download import (
     noto_cjk_weight_instance_path,
     style_suffix,
 )
-from scripts.naming import compose_family_name
+from scripts.naming import compose_family_name, compose_file_prefix
 from scripts.nerd_font import apply_nerd_font
 from scripts.overlay_cjk import CJK_FILL_RATIO, overlay_cjk
 from scripts.rename import apply_family_name
@@ -126,7 +126,7 @@ def build_one(
     # locale is folded in too (naming.py), so a future sc/jp/kr/hk release
     # variant gets its own name for free.
     family_name = compose_family_name(han_priority, nerd_font)
-    file_prefix = family_name.replace(" ", "")
+    file_prefix = compose_file_prefix(han_priority, nerd_font)
 
     if nerd_font:
         print(f"[build] {label}: patching Nerd Font icons...")
