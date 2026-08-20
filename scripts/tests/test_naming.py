@@ -72,6 +72,18 @@ class ApplyFamilyNameTest(unittest.TestCase):
         self.assertNotIn(16, names, "RIBBI weights don't need typographic name overrides")
         self.assertNotIn(17, names)
 
+    def test_regular_italic_postscript_name_is_just_italic(self):
+        # Regression: rename.py used to compute the postscript name with its
+        # own ad-hoc "weight + Italic" formula instead of reusing
+        # style_suffix(), producing "TestFamily-RegularItalic" here -- wrong,
+        # and inconsistent with the actual saved filename (which does use
+        # style_suffix() and correctly produces "-Italic.ttf", not
+        # "-RegularItalic.ttf").
+        font = _font_with_empty_name_table()
+        apply_family_name(font, "Test Family", "Regular", True, "0.1.0", {})
+        names = _names(font)
+        self.assertEqual(names[6], "TestFamily-Italic")
+
     def test_bold_and_bold_italic_stay_ribbi(self):
         font = _font_with_empty_name_table()
         apply_family_name(font, "Test Family", "Bold", False, "0.1.0", {})

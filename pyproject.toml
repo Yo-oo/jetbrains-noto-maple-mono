@@ -1,7 +1,7 @@
 [project]
-name = "jetbrains-noto-maple-mono"
-version = "0.1.0"
-description = "JetBrains Mono + Noto Sans CJK + Maple Mono's tag ligatures, fused into one monospace font"
+name = "blanda-jnm-mono"
+version = "1.0"
+description = "Blanda JNM Mono: JetBrains Mono + Noto Sans CJK + Maple Mono's tag ligatures, fused into one monospace font"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

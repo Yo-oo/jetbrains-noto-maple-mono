@@ -7,6 +7,25 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "blanda-jnm-mono"
+version = "1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "fonttools", extra = ["woff"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fonttools", extras = ["woff"], specifier = "~=4.63" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = "~=0.15" }]
+
+[[package]]
 name = "brotli"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -262,25 +281,6 @@ woff = [
     { name = "brotlicffi", marker = "platform_python_implementation != 'CPython'" },
     { name = "zopfli" },
 ]
-
-[[package]]
-name = "jetbrains-noto-maple-mono"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "fonttools", extra = ["woff"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "fonttools", extras = ["woff"], specifier = "~=4.63" }]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = "~=0.15" }]
 
 [[package]]
 name = "pycparser"

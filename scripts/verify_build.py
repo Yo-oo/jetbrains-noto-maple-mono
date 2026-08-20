@@ -20,6 +20,8 @@ from pathlib import Path
 
 from fontTools.ttLib import TTFont
 
+from scripts.naming import BASE_FAMILY_NAME
+
 MIN_GLYPH_COUNT = 40000  # full CJK + Latin should be ~55k; a big drop means something silently failed
 JETBRAINS_NATIVE_FEATURES = {"zero", "cv01", "ss01", "frac", "ordn", "subs", "sups", "case"}
 
@@ -68,7 +70,7 @@ def verify_font(path: Path) -> list[str]:
 
     name_table = font["name"]
     family_record = name_table.getName(1, 3, 1, 0x409)
-    if family_record is None or "JetBrains Noto Maple Mono" not in family_record.toUnicode():
+    if family_record is None or BASE_FAMILY_NAME not in family_record.toUnicode():
         problems.append("name table family name wasn't rewritten correctly")
 
     return problems

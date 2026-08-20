@@ -1,4 +1,4 @@
-"""Build JetBrains Noto Maple Mono: JetBrains Mono + Noto Sans CJK + Maple Mono's tags.
+"""Build Blanda JNM Mono: JetBrains Mono + Noto Sans CJK + Maple Mono's tags.
 
 Per (weight, style):
   1. Download JetBrains Mono {weight}[Italic].ttf as the base.
@@ -46,13 +46,13 @@ from scripts.download import (
     noto_cjk_weight_instance_path,
     style_suffix,
 )
+from scripts.naming import compose_family_name
 from scripts.nerd_font import apply_nerd_font
 from scripts.overlay_cjk import CJK_FILL_RATIO, overlay_cjk
 from scripts.rename import apply_family_name
 from scripts.tag_ligatures import apply_tag_ligatures
 
 _config = load_config()
-FAMILY_NAME = _config["family_name"]
 
 # JetBrains Mono's OWN italic angle -- read from JetBrainsMono-Italic.ttf's
 # post.italicAngle (-9.0) and confirmed against hhea's caret slope (~9.0 deg
@@ -122,8 +122,10 @@ def build_one(
     # every other Nerd Font patched font, appending " NF" to the family name
     # (rather than silently baking icons into the same name) is what lets a
     # font picker/terminal config tell them apart, and lets a user keep both
-    # installed if they use icons in some apps but not others.
-    family_name = f"{FAMILY_NAME} NF" if nerd_font else FAMILY_NAME
+    # installed if they use icons in some apps but not others. Han-priority
+    # locale is folded in too (naming.py), so a future sc/jp/kr/hk release
+    # variant gets its own name for free.
+    family_name = compose_family_name(han_priority, nerd_font)
     file_prefix = family_name.replace(" ", "")
 
     if nerd_font:

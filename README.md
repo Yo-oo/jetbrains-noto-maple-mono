@@ -1,4 +1,4 @@
-# JetBrains Noto Maple Mono
+# Blanda JNM Mono
 
 A monospace font that fuses:
 
@@ -52,7 +52,7 @@ All tunable values live in `config.json`.
 
 | Key                   | Meaning                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------- |
-| `family_name`         | Font family name baked into the name table.                                           |
+| `family_name`         | Base font family name prefix (Han-priority locale and `Mono`/`NF` are appended automatically — see `scripts/naming.py`). |
 | `upstream_versions.*` | JetBrains Mono / Noto Sans CJK / Maple Mono / Nerd Fonts versions to build against.   |
 | `cjk.fill_ratio`      | CJK glyph ink shrink-toward-center ratio (cosmetic).                                  |
 | `cjk.italic_angle`    | Synthetic CJK italic shear angle, matched to JetBrains Mono's own.                    |

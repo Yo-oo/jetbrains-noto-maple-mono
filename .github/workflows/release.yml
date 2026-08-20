@@ -43,21 +43,27 @@ jobs:
       - name: Verify build output
         run: python -m scripts.verify_build dist/fonts/*.ttf
 
+      - name: Compute release file prefixes
+        id: prefix
+        run: |
+          echo "plain=$(python -m scripts.naming)" >> "$GITHUB_OUTPUT"
+          echo "nf=$(python -m scripts.naming --nerd-font)" >> "$GITHUB_OUTPUT"
+
       - name: Zip fonts
         run: |
           cp OFL.txt dist/fonts/OFL.txt
           cd dist/fonts
-          zip -r ../../JetBrainsNotoMapleMono.zip JetBrainsNotoMapleMono-*.ttf OFL.txt
-          zip -r ../../JetBrainsNotoMapleMonoNF.zip JetBrainsNotoMapleMonoNF-*.ttf OFL.txt
-          zip -r ../../JetBrainsNotoMapleMono-Woff2.zip JetBrainsNotoMapleMono-*.woff2 OFL.txt
-          zip -r ../../JetBrainsNotoMapleMonoNF-Woff2.zip JetBrainsNotoMapleMonoNF-*.woff2 OFL.txt
+          zip -r "../../${{ steps.prefix.outputs.plain }}.zip" "${{ steps.prefix.outputs.plain }}"-*.ttf OFL.txt
+          zip -r "../../${{ steps.prefix.outputs.nf }}.zip" "${{ steps.prefix.outputs.nf }}"-*.ttf OFL.txt
+          zip -r "../../${{ steps.prefix.outputs.plain }}-Woff2.zip" "${{ steps.prefix.outputs.plain }}"-*.woff2 OFL.txt
+          zip -r "../../${{ steps.prefix.outputs.nf }}-Woff2.zip" "${{ steps.prefix.outputs.nf }}"-*.woff2 OFL.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            JetBrainsNotoMapleMono.zip
-            JetBrainsNotoMapleMonoNF.zip
-            JetBrainsNotoMapleMono-Woff2.zip
-            JetBrainsNotoMapleMonoNF-Woff2.zip
+            ${{ steps.prefix.outputs.plain }}.zip
+            ${{ steps.prefix.outputs.nf }}.zip
+            ${{ steps.prefix.outputs.plain }}-Woff2.zip
+            ${{ steps.prefix.outputs.nf }}-Woff2.zip
           generate_release_notes: true

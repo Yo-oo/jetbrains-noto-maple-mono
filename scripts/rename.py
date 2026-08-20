@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from fontTools.ttLib import TTFont
 
+from scripts.download import style_suffix
+
 RIBBI_WEIGHTS = ("Regular", "Bold")
 
 
@@ -58,8 +60,7 @@ def apply_family_name(
     else:
         full_name = f"{legacy_family} {legacy_subfamily}"
 
-    postscript_style = weight + ("Italic" if italic else "")
-    postscript_name = f"{family_name.replace(' ', '')}-{postscript_style}"
+    postscript_name = f"{family_name.replace(' ', '')}-{style_suffix(weight, italic)}"
 
     credits = "; ".join(f"{name} {ver}" for name, ver in upstream_versions.items())
     version_string = f"Version {project_version} ({credits})"
