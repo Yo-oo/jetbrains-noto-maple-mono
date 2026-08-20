@@ -8,7 +8,8 @@
   },
   "cjk": {
     "fill_ratio": 0.88,
-    "italic_angle": 9.0
+    "italic_angle": 9.0,
+    "han_priority": "tc"
   },
   "build_defaults": {
     "weights": "regular,bold",

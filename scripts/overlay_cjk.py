@@ -12,11 +12,22 @@ Source is glyf (TrueType), not CFF, but the Cu2QuPen conversion step below
 is kept anyway -- verified it passes already-quadratic input through
 unchanged, so this works for either outline format without a branch.
 
-Source-of-truth per codepoint: tc (Traditional Chinese Han shapes + shared
-CJK punctuation/symbols/bopomofo) by default, overridden by jp for kana and
-kr for hangul -- each locale's own release renders those scripts with
-locale-appropriate typography even though all three regional releases
-technically contain the full repertoire.
+Source-of-truth per codepoint: the configured Han-priority locale (config.json's
+cjk.han_priority, default "tc") for Han shapes + shared CJK punctuation/
+symbols/bopomofo, overridden by jp for kana and kr for hangul regardless of
+that setting -- kana and hangul aren't regionally ambiguous the way Han is
+(verified: tc/hk/sc/jp/kr all cover the exact same ~29,919 Han codepoints, so
+switching han_priority never gains or loses coverage, only glyph shape).
+Han shapes genuinely differ a lot by region though (measured: ~36% of BMP
+Han differ sc-vs-tc, ~55% jp-vs-tc and kr-vs-tc) -- picking the wrong
+priority for your audience is a real, visible difference, not a nitpick.
+This is a build-time choice (one flat glyph per codepoint), not OpenType
+'locl' runtime switching -- deliberately not implemented: it would need
+every regionally-divergent Han codepoint (thousands, per the measurement
+above) duplicated as extra glyphs plus GSUB substitution lookups wired per
+language, for a payoff mostly limited to lang-tagged web contexts (browsers
+honor 'locl'; terminals/IDEs -- this project's actual target -- generally
+don't tag runs with a language at all, so 'locl' would go unused there).
 
 Transform: Noto's own fullwidth advance is exactly 2x ITS OWN paired Latin
 advance (1000 vs 500, in a 1000-unitsPerEm font) -- it's designed for
@@ -88,15 +99,22 @@ def _in_ranges(cp: int, ranges: tuple[tuple[int, int], ...]) -> bool:
 
 
 def build_codepoint_source_map(
-    tc_font: TTFont, jp_font: TTFont, kr_font: TTFont
+    han_font: TTFont, jp_font: TTFont, kr_font: TTFont
 ) -> dict[int, tuple[TTFont, str]]:
-    """Return {codepoint: (source_font, glyph_name)}, tc-wide with jp/kr overrides."""
-    tc_cmap = tc_font.getBestCmap()
+    """Return {codepoint: (source_font, glyph_name)}, han_font-wide with jp/kr overrides.
+
+    han_font is whichever locale config.json's cjk.han_priority selects (tc
+    by default) -- covers Han + shared CJK punctuation/symbols/bopomofo.
+    jp/kr overrides for kana/hangul are unconditional, not affected by that
+    setting (see module docstring: those scripts aren't regionally
+    ambiguous the way Han is).
+    """
+    han_cmap = han_font.getBestCmap()
     jp_cmap = jp_font.getBestCmap()
     kr_cmap = kr_font.getBestCmap()
 
     result: dict[int, tuple[TTFont, str]] = {
-        cp: (tc_font, name) for cp, name in tc_cmap.items()
+        cp: (han_font, name) for cp, name in han_cmap.items()
     }
     for cp, name in jp_cmap.items():
         if _in_ranges(cp, JP_KANA_RANGES):
@@ -117,11 +135,12 @@ def _vertical_shift_for(cjk_font: TTFont, jetbrains_font: TTFont, scale: float) 
 
 def overlay_cjk(
     base: TTFont,
-    tc_path: Path,
+    han_path: Path,
     jp_path: Path,
     kr_path: Path,
     codepoint_filter: set[int] | None = None,
     italic_angle: float = 0.0,
+    fill_ratio: float = CJK_FILL_RATIO,
 ) -> int:
     """Mutate base in place, adding CJK glyphs at codepoints it doesn't already have.
 
@@ -141,14 +160,14 @@ def overlay_cjk(
 
     Returns the number of codepoints added.
     """
-    tc_font = TTFont(str(tc_path))
+    han_font = TTFont(str(han_path))
     jp_font = TTFont(str(jp_path))
     kr_font = TTFont(str(kr_path))
 
     base_cmap = base.getBestCmap()
     base_advance = base["hmtx"]["A"][0]
     target_advance = base_advance * 2
-    source_map = build_codepoint_source_map(tc_font, jp_font, kr_font)
+    source_map = build_codepoint_source_map(han_font, jp_font, kr_font)
     if codepoint_filter is not None:
         source_map = {cp: v for cp, v in source_map.items() if cp in codepoint_filter}
 
@@ -157,14 +176,14 @@ def overlay_cjk(
     # cell relative to Han/Kana's 1000 -- see module docstring.
     y_shift_by_font_id = {
         id(font): _vertical_shift_for(font, base, target_advance / 1000)
-        for font in (tc_font, jp_font, kr_font)
+        for font in (han_font, jp_font, kr_font)
     }
     jb_hhea = base["hhea"]
     jb_center = (jb_hhea.ascent + jb_hhea.descent) / 2
     # Fixed offsets for the CJK_FILL_RATIO shrink-toward-center step, composed
     # into the same matrix as the width/vertical transform below.
-    fill_tx = target_advance / 2 * (1 - CJK_FILL_RATIO)
-    fill_ty = jb_center * (1 - CJK_FILL_RATIO)
+    fill_tx = target_advance / 2 * (1 - fill_ratio)
+    fill_ty = jb_center * (1 - fill_ratio)
     shear_tan = math.tan(math.radians(italic_angle))
 
     base_glyf = base["glyf"]
@@ -197,9 +216,9 @@ def overlay_cjk(
         # followed by the CJK_FILL_RATIO shrink-toward-cell-center (see
         # module docstring) -- combined into one matrix rather than two
         # chained TransformPens.
-        combined_scale = scale * CJK_FILL_RATIO
+        combined_scale = scale * fill_ratio
         combined_tx = fill_tx
-        combined_ty = y_shift * CJK_FILL_RATIO + fill_ty
+        combined_ty = y_shift * fill_ratio + fill_ty
 
         # Fold the italic shear (x depends on y) into the same matrix: a
         # point's final y (combined_scale*y + combined_ty) contributes

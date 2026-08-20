@@ -23,11 +23,15 @@ from scripts.config import load_config
 
 _upstream_versions = load_config()["upstream_versions"]
 
+# Every *_path()/*_VERSION function below takes an optional version override
+# (build.py wires these to --jetbrains-mono-version etc., in turn wired to
+# build.yml's workflow_dispatch inputs) -- config.json's pins are still the
+# DEFAULT, and release.yml never passes an override, so a real release only
+# ever uses what's pinned and reviewed in config.json. Overrides exist for
+# ad-hoc build.yml runs (write-access collaborators only, artifact-only
+# output, no Release created -- see conversation), not for loosening what
+# ships publicly.
 JETBRAINS_MONO_VERSION = _upstream_versions["jetbrains_mono"]
-JETBRAINS_MONO_URL = (
-    f"https://github.com/JetBrains/JetBrainsMono/releases/download/"
-    f"v{JETBRAINS_MONO_VERSION}/JetBrainsMono-{JETBRAINS_MONO_VERSION}.zip"
-)
 
 # Noto Sans CJK (the regular, non-"Mono" release): despite the family being
 # "proportional", its CJK Han/Hangul/Kana glyphs still use the exact same
@@ -44,6 +48,8 @@ NOTO_CJK_VF_MEMBERS = {
     "jp": "Variable/TTF/NotoSansCJKjp-VF.ttf",
     "kr": "Variable/TTF/NotoSansCJKkr-VF.ttf",
     "tc": "Variable/TTF/NotoSansCJKtc-VF.ttf",
+    "sc": "Variable/TTF/NotoSansCJKsc-VF.ttf",
+    "hk": "Variable/TTF/NotoSansCJKhk-VF.ttf",
 }
 
 MAPLE_MONO_VERSION = _upstream_versions["maple_mono"]
@@ -95,40 +101,53 @@ def style_suffix(weight: str, italic: bool) -> str:
     return "Italic" if weight == "Regular" else f"{weight}Italic"
 
 
-def jetbrains_mono_path(weight: str, italic: bool = False) -> Path:
+def jetbrains_mono_path(weight: str, italic: bool = False, version: str | None = None) -> Path:
+    version = version or JETBRAINS_MONO_VERSION
     suffix = style_suffix(weight, italic)
-    dest = UPSTREAM_DIR / "jetbrains-mono" / f"JetBrainsMono-{suffix}.ttf"
-    return _extract_member(JETBRAINS_MONO_URL, f"fonts/ttf/JetBrainsMono-{suffix}.ttf", dest)
+    url = (
+        f"https://github.com/JetBrains/JetBrainsMono/releases/download/"
+        f"v{version}/JetBrainsMono-{version}.zip"
+    )
+    dest = UPSTREAM_DIR / "jetbrains-mono" / version / f"JetBrainsMono-{suffix}.ttf"
+    return _extract_member(url, f"fonts/ttf/JetBrainsMono-{suffix}.ttf", dest)
 
 
-def noto_cjk_variable_path(locale: str) -> Path:
+def noto_cjk_variable_path(locale: str, version: str | None = None) -> Path:
+    version = version or NOTO_CJK_RELEASE_TAG
     url = (
         f"https://github.com/notofonts/noto-cjk/releases/download/"
-        f"{NOTO_CJK_RELEASE_TAG}/{NOTO_CJK_VF_ASSET}"
+        f"{version}/{NOTO_CJK_VF_ASSET}"
     )
     member = NOTO_CJK_VF_MEMBERS[locale]
-    dest = UPSTREAM_DIR / "noto-sans-cjk-vf" / f"NotoSansCJK{locale}-VF.ttf"
+    dest = UPSTREAM_DIR / "noto-sans-cjk-vf" / version / f"NotoSansCJK{locale}-VF.ttf"
     return _extract_member(url, member, dest)
 
 
-def noto_cjk_weight_instance_path(locale: str, weight_value: int) -> Path:
+def noto_cjk_weight_instance_path(
+    locale: str, weight_value: int, version: str | None = None
+) -> Path:
     """Instantiate one static weight from the Noto Sans CJK variable font, cached."""
-    dest = UPSTREAM_DIR / "noto-sans-cjk-instances" / f"NotoSansCJK{locale}-{weight_value}.ttf"
+    version = version or NOTO_CJK_RELEASE_TAG
+    dest = (
+        UPSTREAM_DIR / "noto-sans-cjk-instances" / version
+        / f"NotoSansCJK{locale}-{weight_value}.ttf"
+    )
     if dest.exists():
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
-    source = TTFont(str(noto_cjk_variable_path(locale)))
+    source = TTFont(str(noto_cjk_variable_path(locale, version)))
     instance = instantiateVariableFont(source, {"wght": float(weight_value)}, inplace=False)
     return save_font_atomic(instance, dest)
 
 
-def maple_mono_path(weight: str, italic: bool = False) -> Path:
+def maple_mono_path(weight: str, italic: bool = False, version: str | None = None) -> Path:
+    version = version or MAPLE_MONO_VERSION
     suffix = style_suffix(weight, italic)
     url = (
         f"https://github.com/subframe7536/maple-font/releases/download/"
-        f"v{MAPLE_MONO_VERSION}/{MAPLE_MONO_ASSET}"
+        f"v{version}/{MAPLE_MONO_ASSET}"
     )
-    dest = UPSTREAM_DIR / "maple-mono" / f"MapleMono-{suffix}.ttf"
+    dest = UPSTREAM_DIR / "maple-mono" / version / f"MapleMono-{suffix}.ttf"
     return _extract_member(url, f"MapleMono-{suffix}.ttf", dest)
 
 
@@ -157,10 +176,11 @@ NERD_FONT_VERSION = _upstream_versions["nerd_fonts"]
 NERD_FONT_ASSET = "JetBrainsMono.zip"
 
 
-def jetbrains_mono_nerd_font_path() -> Path:
+def jetbrains_mono_nerd_font_path(version: str | None = None) -> Path:
+    version = version or NERD_FONT_VERSION
     url = (
         f"https://github.com/ryanoasis/nerd-fonts/releases/download/"
-        f"{NERD_FONT_VERSION}/{NERD_FONT_ASSET}"
+        f"{version}/{NERD_FONT_ASSET}"
     )
-    dest = UPSTREAM_DIR / "nerd-fonts" / "JetBrainsMonoNerdFont-Regular.ttf"
+    dest = UPSTREAM_DIR / "nerd-fonts" / version / "JetBrainsMonoNerdFont-Regular.ttf"
     return _extract_member(url, "JetBrainsMonoNerdFont-Regular.ttf", dest)
