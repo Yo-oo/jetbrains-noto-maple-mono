@@ -1,6 +1,6 @@
 [project]
 name = "blanda-jnm-mono"
-version = "1.0"
+version = "1.1"
 description = "Blanda JNM Mono: JetBrains Mono + Noto Sans CJK + Maple Mono's tag ligatures, fused into one monospace font"
 readme = "README.md"
 requires-python = ">=3.10"
