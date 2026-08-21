@@ -77,6 +77,9 @@ WEIGHT_KEYS = {w.lower(): w for w in WEIGHTS}
 HAN_PRIORITY_CHOICES = ("tc", "hk", "sc", "jp", "kr")
 HAN_PRIORITY_DEFAULT = _config["cjk"]["han_priority"]
 
+FORMAT_CHOICES = ("ttf", "woff2")
+FORMATS_DEFAULT = _config["build_defaults"]["formats"]
+
 
 def build_one(
     weight_key: str,
@@ -91,6 +94,7 @@ def build_one(
     noto_cjk_release_tag: str = NOTO_CJK_RELEASE_TAG,
     maple_mono_version: str = MAPLE_MONO_VERSION,
     nerd_fonts_version: str = NERD_FONT_VERSION,
+    formats: frozenset[str] = frozenset(FORMAT_CHOICES),
 ) -> Path:
     weight = WEIGHT_KEYS[weight_key]
     label = style_suffix(weight, italic)
@@ -143,18 +147,28 @@ def build_one(
     apply_family_name(font, family_name, weight, italic, project_version, upstream_versions)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{file_prefix}-{label}.ttf"
-    font.save(str(out_path))
-    print(f"[build] {label}: saved {out_path}")
+    saved_paths = []
 
-    # Same table data, different container: flavor="woff2" only changes how
-    # save() packs the sfnt (brotli-compressed, web-oriented), so this is a
-    # second save() on the same already-built font object, not a rebuild.
-    woff2_path = out_dir / f"{file_prefix}-{label}.woff2"
-    font.flavor = "woff2"
-    font.save(str(woff2_path))
-    print(f"[build] {label}: saved {woff2_path}")
-    return out_path
+    if "ttf" in formats:
+        ttf_path = out_dir / f"{file_prefix}-{label}.ttf"
+        font.save(str(ttf_path))
+        print(f"[build] {label}: saved {ttf_path}")
+        saved_paths.append(ttf_path)
+
+    if "woff2" in formats:
+        # Same table data, different container: flavor="woff2" only changes
+        # how save() packs the sfnt (brotli-compressed, web-oriented), so
+        # this is a second save() on the same already-built font object,
+        # not a rebuild.
+        woff2_path = out_dir / f"{file_prefix}-{label}.woff2"
+        font.flavor = "woff2"
+        font.save(str(woff2_path))
+        print(f"[build] {label}: saved {woff2_path}")
+        saved_paths.append(woff2_path)
+
+    if not saved_paths:
+        raise SystemExit(f"no formats requested (formats={sorted(formats)}) -- nothing to save")
+    return saved_paths[0]
 
 
 def main() -> None:
@@ -215,6 +229,14 @@ def main() -> None:
         help="Override the pinned Nerd Fonts release version for this build only.",
     )
     parser.add_argument(
+        "--formats",
+        default=FORMATS_DEFAULT,
+        help=(
+            "Comma-separated output formats to save (choose from ttf, woff2). "
+            "Defaults to config.json's build_defaults.formats."
+        ),
+    )
+    parser.add_argument(
         "--version",
         default=None,
         help=(
@@ -239,6 +261,11 @@ def main() -> None:
     if unknown_styles:
         raise SystemExit(f"unknown style(s): {sorted(unknown_styles)} -- choose from regular, italic")
 
+    formats = frozenset(f.strip().lower() for f in args.formats.split(",") if f.strip())
+    unknown_formats = formats - set(FORMAT_CHOICES)
+    if unknown_formats:
+        raise SystemExit(f"unknown format(s): {sorted(unknown_formats)} -- choose from {FORMAT_CHOICES}")
+
     produced = [
         build_one(
             weight_key,
@@ -253,6 +280,7 @@ def main() -> None:
             noto_cjk_release_tag=args.noto_cjk_release_tag,
             maple_mono_version=args.maple_mono_version,
             nerd_fonts_version=args.nerd_fonts_version,
+            formats=formats,
         )
         for weight_key in weight_keys
         for style_key in style_keys
