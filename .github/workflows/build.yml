@@ -35,37 +35,42 @@ on:
           - jp
           - kr
       fill_ratio:
-        description: 'Override cjk.fill_ratio, e.g. 0.88 (blank = use config.jsonc)'
+        description: 'Override cjk.fill_ratio as JSON, e.g. 0.88 (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       italic_angle:
-        description: 'Override cjk.italic_angle in degrees, e.g. 9.0 (blank = use config.jsonc)'
+        description: 'Override cjk.italic_angle as JSON, in degrees, e.g. 9.0 (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       badge_weight:
-        description: 'Override tags.badge_weight, e.g. Bold (blank = use config.jsonc)'
+        description: 'Override tags.badge_weight as JSON, e.g. "SemiBold" or null (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       corner_radius:
-        description: "Override tags.corner_radius: 'pill' or a number 0-660 (blank = use config.jsonc)"
+        description: 'Override tags.corner_radius as JSON: "pill" or a number 0-660 (blank = use config.jsonc; null is not a valid value here -- see tags_list to disable tag ligatures entirely)'
+        required: false
+        default: ''
+        type: string
+      tags_list:
+        description: 'Override tags.list as a JSON array, e.g. ["[INFO]","[WARN]"], or null to disable tag ligatures entirely (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       jetbrains_mono_version:
-        description: 'Override upstream_versions.jetbrains_mono for this run only, e.g. 2.304 (blank = use config.jsonc; never affects release.yml)'
+        description: 'Override upstream_versions.jetbrains_mono as JSON for this run only, e.g. "2.304" (blank = use config.jsonc; never affects release.yml)'
         required: false
         default: ''
         type: string
       noto_cjk_release_tag:
-        description: 'Override upstream_versions.noto_cjk_release_tag for this run only, e.g. Sans2.004 (blank = use config.jsonc)'
+        description: 'Override upstream_versions.noto_cjk_release_tag as JSON for this run only, e.g. "Sans2.004" (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       nerd_fonts_version:
-        description: 'Override upstream_versions.nerd_fonts for this run only, e.g. v3.5.0 (blank = use config.jsonc)'
+        description: 'Override upstream_versions.nerd_fonts as JSON for this run only, e.g. "v3.5.0" (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
@@ -90,21 +95,51 @@ jobs:
       - name: Install dependencies
         run: pip install .
 
-      - name: Build fonts
+      # Every override below is a straight config.jsonc dotted-path write via
+      # scripts/patch_config.py, rather than a bespoke --flag per field on
+      # scripts.build -- so any config.jsonc value (including tags.list
+      # arrays, or null to disable tag ligatures) works uniformly, with no
+      # argparse type-conversion mismatch between "blank" and "null".
+      # Inputs are passed through env vars, not inlined into the script, so
+      # a value containing shell metacharacters can't inject commands.
+      - name: Apply config.jsonc overrides
+        env:
+          FILL_RATIO: ${{ github.event.inputs.fill_ratio }}
+          ITALIC_ANGLE: ${{ github.event.inputs.italic_angle }}
+          BADGE_WEIGHT: ${{ github.event.inputs.badge_weight }}
+          CORNER_RADIUS: ${{ github.event.inputs.corner_radius }}
+          TAGS_LIST: ${{ github.event.inputs.tags_list }}
+          JETBRAINS_MONO_VERSION: ${{ github.event.inputs.jetbrains_mono_version }}
+          NOTO_CJK_RELEASE_TAG: ${{ github.event.inputs.noto_cjk_release_tag }}
+          NERD_FONTS_VERSION: ${{ github.event.inputs.nerd_fonts_version }}
         run: |
-          python -m scripts.build \
-            --weights "${{ github.event.inputs.weights }}" \
-            --styles "${{ github.event.inputs.styles }}" \
-            --formats "${{ github.event.inputs.formats }}" \
-            --han-priority "${{ github.event.inputs.han_priority }}" \
-            ${{ github.event.inputs.nerd_font == 'true' && '--nerd-font' || '' }} \
-            ${{ github.event.inputs.fill_ratio != '' && format('--fill-ratio {0}', github.event.inputs.fill_ratio) || '' }} \
-            ${{ github.event.inputs.italic_angle != '' && format('--italic-angle {0}', github.event.inputs.italic_angle) || '' }} \
-            ${{ github.event.inputs.badge_weight != '' && format('--badge-weight {0}', github.event.inputs.badge_weight) || '' }} \
-            ${{ github.event.inputs.corner_radius != '' && format('--corner-radius {0}', github.event.inputs.corner_radius) || '' }} \
-            ${{ github.event.inputs.jetbrains_mono_version != '' && format('--jetbrains-mono-version {0}', github.event.inputs.jetbrains_mono_version) || '' }} \
-            ${{ github.event.inputs.noto_cjk_release_tag != '' && format('--noto-cjk-release-tag {0}', github.event.inputs.noto_cjk_release_tag) || '' }} \
-            ${{ github.event.inputs.nerd_fonts_version != '' && format('--nerd-fonts-version {0}', github.event.inputs.nerd_fonts_version) || '' }}
+          set -e
+          SET_ARGS=()
+          add_if_set() { if [ -n "$2" ]; then SET_ARGS+=(--set "$1=$2"); fi; }
+          add_if_set cjk.fill_ratio "$FILL_RATIO"
+          add_if_set cjk.italic_angle "$ITALIC_ANGLE"
+          add_if_set tags.badge_weight "$BADGE_WEIGHT"
+          add_if_set tags.corner_radius "$CORNER_RADIUS"
+          add_if_set tags.list "$TAGS_LIST"
+          add_if_set upstream_versions.jetbrains_mono "$JETBRAINS_MONO_VERSION"
+          add_if_set upstream_versions.noto_cjk_release_tag "$NOTO_CJK_RELEASE_TAG"
+          add_if_set upstream_versions.nerd_fonts "$NERD_FONTS_VERSION"
+          if [ ${#SET_ARGS[@]} -gt 0 ]; then
+            python -m scripts.patch_config "${SET_ARGS[@]}"
+          fi
+
+      - name: Build fonts
+        env:
+          WEIGHTS: ${{ github.event.inputs.weights }}
+          STYLES: ${{ github.event.inputs.styles }}
+          FORMATS: ${{ github.event.inputs.formats }}
+          HAN_PRIORITY: ${{ github.event.inputs.han_priority }}
+          NERD_FONT: ${{ github.event.inputs.nerd_font }}
+        run: |
+          set -e
+          ARGS=(--weights "$WEIGHTS" --styles "$STYLES" --formats "$FORMATS" --han-priority "$HAN_PRIORITY")
+          if [ "$NERD_FONT" = "true" ]; then ARGS+=(--nerd-font); fi
+          python -m scripts.build "${ARGS[@]}"
 
       - name: Verify build output
         run: |
@@ -113,7 +148,14 @@ jobs:
 
       - name: Compute artifact name
         id: prefix
-        run: echo "name=$(python -m scripts.naming --han-priority '${{ github.event.inputs.han_priority }}' ${{ github.event.inputs.nerd_font == 'true' && '--nerd-font' || '' }})" >> "$GITHUB_OUTPUT"
+        env:
+          HAN_PRIORITY: ${{ github.event.inputs.han_priority }}
+          NERD_FONT: ${{ github.event.inputs.nerd_font }}
+        run: |
+          set -e
+          ARGS=(--han-priority "$HAN_PRIORITY")
+          if [ "$NERD_FONT" = "true" ]; then ARGS+=(--nerd-font); fi
+          echo "name=$(python -m scripts.naming "${ARGS[@]}")" >> "$GITHUB_OUTPUT"
 
       - name: Upload built fonts
         uses: actions/upload-artifact@v7

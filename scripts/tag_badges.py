@@ -28,6 +28,8 @@ instead is also valid if that look is preferred.
 
 from __future__ import annotations
 
+import math
+
 from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.transformPen import TransformPen
@@ -37,6 +39,12 @@ from fontTools.ttLib.tables._g_l_y_f import Glyph
 
 
 def resolve_corner_radius(value: str | float, ascent: float, descent: float) -> float:
+    if value is None:
+        raise ValueError(
+            "tags.corner_radius cannot be null -- use \"pill\" or a number "
+            '0-660. To disable tag ligatures entirely, set tags.list to '
+            "null instead."
+        )
     if value == "pill":
         return (ascent - descent) / 2
     return float(value)
@@ -106,15 +114,27 @@ def build_badge_glyph(
     letter_font: TTFont,
     corner_radius_value: str | float,
     inner_pad_x: float = 60,
+    italic_angle: float = 0.0,
 ) -> tuple[Glyph, int]:
     """Return (glyf Glyph, advance) for one badge covering len(text) columns.
 
     `text` is the full trigger (e.g. "[INFO]") -- it determines the badge's
-    width (one column per character, so it lines up with however many
-    positions the GSUB rule actually consumes). Only its stripped core
-    (_display_text) is drawn as visible cutout text; the framing delimiter
-    characters are consumed for width/matching but never rendered, matching
-    Maple Mono's own tag_info.liga (see _display_text's docstring).
+    visual width (one column per character), but the returned advance is
+    always a single 600-unit column: this glyph is only ever placed at the
+    LAST position of a matched sequence (every earlier position keeps its
+    own SPC placeholder advance), and its artwork reaches backward over
+    those columns via a negative left side bearing rather than by actually
+    advancing further. Only its stripped core (_display_text) is drawn as
+    visible cutout text; the framing delimiter characters are consumed for
+    width/matching but never rendered, matching Maple Mono's own
+    tag_info.liga (see _display_text's docstring).
+
+    `italic_angle` (degrees) shears the box only, pivoted on the baseline --
+    same convention as overlay_cjk.py's synthetic CJK shear. The letters
+    themselves are never additionally sheared here: `letter_font` is already
+    the real italic weight file when building an italic style, so its own
+    outlines carry the correct slant already; shearing them again on top
+    would double the lean.
     """
     cmap = letter_font.getBestCmap()
     glyph_set = letter_font.getGlyphSet()
@@ -122,12 +142,25 @@ def build_badge_glyph(
     hhea = letter_font["hhea"]
     ascent, descent = hhea.ascent, hhea.descent
 
+    # This glyph is placed at the LAST position of the matched sequence (every
+    # earlier position becomes the blank SPC placeholder, each keeping its own
+    # normal 600-unit advance) -- so its own advance must stay a single
+    # 600-unit column, and its artwork spans backward from that column's
+    # right edge via a negative left side bearing (x0 goes negative) to cover
+    # the full width of all the columns it visually replaces.
     width = len(text) * 600
-    x0, y0, x1, y1 = 0, descent, width, ascent
+    x1 = 600
+    x0 = x1 - width
+    y0, y1 = descent, ascent
     radius = resolve_corner_radius(corner_radius_value, ascent, descent)
 
     rec = RecordingPen()
-    _draw_rounded_rect(rec, x0, y0, x1, y1, radius)
+    box_pen = RecordingPen()
+    _draw_rounded_rect(box_pen, x0, y0, x1, y1, radius)
+    shear_tan = math.tan(math.radians(italic_angle))
+    box_tp = TransformPen(rec, (1, 0, shear_tan, 1, 0, 0))
+    for op, args in box_pen.value:
+        getattr(box_tp, op)(*args)
 
     display_text = _display_text(text) or text
     cursor = 0
@@ -174,4 +207,4 @@ def build_badge_glyph(
     cu2qu_pen = Cu2QuPen(pen, max_err=1.0, reverse_direction=False)
     for op, args in rec.value:
         getattr(cu2qu_pen, op)(*args)
-    return pen.glyph(), width
+    return pen.glyph(), 600

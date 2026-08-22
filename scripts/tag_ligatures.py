@@ -144,8 +144,13 @@ def apply_tag_ligatures(
     tags: list[str],
     letter_font: TTFont,
     corner_radius: str | float,
+    italic_angle: float = 0.0,
 ) -> int:
     """Mutate base in place, adding generated tag badges + fresh calt/ss03 rules.
+
+    `italic_angle` shears the badge box to match an italic build -- pass 0
+    for a regular (upright) build. See build_badge_glyph's docstring for why
+    the letters themselves aren't additionally sheared here.
 
     Returns the number of tags wired.
     """
@@ -164,7 +169,9 @@ def apply_tag_ligatures(
 
     for index, text in enumerate(tags):
         badge_name = _badge_glyph_name(index)
-        glyph, advance = build_badge_glyph(text, letter_font, corner_radius)
+        glyph, advance = build_badge_glyph(
+            text, letter_font, corner_radius, italic_angle=italic_angle
+        )
         base_glyf[badge_name] = glyph
         base_hmtx[badge_name] = (advance, 0)
         if badge_name not in glyph_order:

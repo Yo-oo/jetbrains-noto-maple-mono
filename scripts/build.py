@@ -93,6 +93,11 @@ TAG_LIST_DEFAULT: list[str] | None = TAGS_CONFIG["list"]
 
 
 def resolve_corner_radius(value: str) -> str | float:
+    if value in ("None", "null"):
+        raise SystemExit(
+            "tags.corner_radius cannot be null -- use 'pill' or a number 0-660. "
+            "To disable tag ligatures entirely, set tags.list to null instead."
+        )
     if value == "pill":
         return value
     return float(value)
@@ -144,7 +149,10 @@ def build_one(
         else:
             letter_font = font
         print(f"[build] {label}: wiring tag ligatures...")
-        tag_count = apply_tag_ligatures(font, tags, letter_font, corner_radius)
+        tag_count = apply_tag_ligatures(
+            font, tags, letter_font, corner_radius,
+            italic_angle=italic_angle if italic else 0.0,
+        )
         print(f"[build] {label}: wired {tag_count} tags")
     else:
         print(f"[build] {label}: tag ligatures disabled (tags.list is null)")
@@ -304,10 +312,11 @@ def main() -> None:
     if unknown_formats:
         raise SystemExit(f"unknown format(s): {sorted(unknown_formats)} -- choose from {FORMAT_CHOICES}")
 
+    corner_radius: str | float | None = None
     if TAG_LIST_DEFAULT:
         for warning in check_tag_boundaries(TAG_LIST_DEFAULT):
             print(f"[build] warning: {warning}", file=sys.stderr)
-    corner_radius = resolve_corner_radius(args.corner_radius)
+        corner_radius = resolve_corner_radius(args.corner_radius)
 
     produced = [
         build_one(

@@ -39,6 +39,11 @@ class ResolveCornerRadiusTest(unittest.TestCase):
     def test_zero_is_square(self):
         self.assertEqual(resolve_corner_radius(0, 1020, -300), 0.0)
 
+    def test_null_raises_with_a_pointer_to_tags_list(self):
+        with self.assertRaises(ValueError) as ctx:
+            resolve_corner_radius(None, 1020, -300)
+        self.assertIn("tags.list", str(ctx.exception))
+
 
 class CheckTagBoundariesTest(unittest.TestCase):
     def test_bracket_style_tag_has_no_warning(self):
@@ -62,9 +67,27 @@ class BuildBadgeGlyphTest(unittest.TestCase):
     def setUpClass(cls):
         cls.letter_font = TTFont(str(jetbrains_mono_path("Bold")))
 
-    def test_advance_matches_column_count(self):
+    def test_advance_is_a_single_column(self):
+        # This glyph only ever sits at the LAST position of a matched
+        # sequence -- every earlier position keeps its own SPC placeholder
+        # advance, so this glyph's own advance must stay one column (600),
+        # not the full multi-column badge width. Regression: an earlier
+        # draft returned the full width here, double-counting it on top of
+        # the preceding SPC advances and pushing everything after the badge
+        # to the right by (len(text) - 1) * 600.
         _glyph, advance = build_badge_glyph("[INFO]", self.letter_font, "pill")
-        self.assertEqual(advance, len("[INFO]") * 600)
+        self.assertEqual(advance, 600)
+
+    def test_artwork_reaches_back_to_cover_every_column(self):
+        # The badge glyph is placed at the last position, so its artwork
+        # must extend backward (negative xMin) to cover all len(text)
+        # columns, while staying flush with this glyph's own column on the
+        # right (xMax == 600).
+        glyph, _advance = build_badge_glyph("[INFO]", self.letter_font, "pill")
+        width = len("[INFO]") * 600
+        xs = [x for x, _y in glyph.coordinates]
+        self.assertEqual(max(xs), 600)
+        self.assertEqual(min(xs), 600 - width)
 
     def test_produces_a_hole_not_a_solid_shape(self):
         # Regression: an earlier draft added a spurious contour-reversal
