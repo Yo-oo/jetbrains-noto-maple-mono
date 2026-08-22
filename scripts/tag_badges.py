@@ -115,8 +115,8 @@ def build_badge_glyph(
     corner_radius_value: str | float,
     inner_pad_x: float = 60,
     italic_angle: float = 0.0,
-) -> tuple[Glyph, int]:
-    """Return (glyf Glyph, advance) for one badge covering len(text) columns.
+) -> tuple[Glyph, int, int]:
+    """Return (glyf Glyph, advance, lsb) for one badge covering len(text) columns.
 
     `text` is the full trigger (e.g. "[INFO]") -- it determines the badge's
     visual width (one column per character), but the returned advance is
@@ -124,8 +124,15 @@ def build_badge_glyph(
     LAST position of a matched sequence (every earlier position keeps its
     own SPC placeholder advance), and its artwork reaches backward over
     those columns via a negative left side bearing rather than by actually
-    advancing further. Only its stripped core (_display_text) is drawn as
-    visible cutout text; the framing delimiter characters are consumed for
+    advancing further. The returned lsb is that negative value (the box's
+    left edge) -- it must be stored as this glyph's hmtx left side bearing,
+    not 0: hmtx.lsb is supposed to equal the outline's own xMin, and leaving
+    it at 0 while the outline's real xMin is very negative caused real
+    rendering stacks (confirmed in Chromium, not just a niche renderer) to
+    reposition the ink to start at x=0 instead of the intended negative
+    offset, visually shifting every badge to the right by (len(text) - 1)
+    columns. Only its stripped core (_display_text) is drawn as visible
+    cutout text; the framing delimiter characters are consumed for
     width/matching but never rendered, matching Maple Mono's own
     tag_info.liga (see _display_text's docstring).
 
@@ -207,4 +214,9 @@ def build_badge_glyph(
     cu2qu_pen = Cu2QuPen(pen, max_err=1.0, reverse_direction=False)
     for op, args in rec.value:
         getattr(cu2qu_pen, op)(*args)
-    return pen.glyph(), 600
+
+    # The true leftmost x -- not just x0 -- since a sheared (italic) box's
+    # bottom-left corner reaches further left than the unsheared x0.
+    all_x = [pt[0] for _op, args in rec.value for pt in args]
+    lsb = round(min(all_x)) if all_x else round(x0)
+    return pen.glyph(), 600, lsb

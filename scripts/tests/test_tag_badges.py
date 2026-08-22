@@ -75,7 +75,7 @@ class BuildBadgeGlyphTest(unittest.TestCase):
         # draft returned the full width here, double-counting it on top of
         # the preceding SPC advances and pushing everything after the badge
         # to the right by (len(text) - 1) * 600.
-        _glyph, advance = build_badge_glyph("[INFO]", self.letter_font, "pill")
+        _glyph, advance, _lsb = build_badge_glyph("[INFO]", self.letter_font, "pill")
         self.assertEqual(advance, 600)
 
     def test_artwork_reaches_back_to_cover_every_column(self):
@@ -83,21 +83,30 @@ class BuildBadgeGlyphTest(unittest.TestCase):
         # must extend backward (negative xMin) to cover all len(text)
         # columns, while staying flush with this glyph's own column on the
         # right (xMax == 600).
-        glyph, _advance = build_badge_glyph("[INFO]", self.letter_font, "pill")
+        glyph, _advance, _lsb = build_badge_glyph("[INFO]", self.letter_font, "pill")
         width = len("[INFO]") * 600
         xs = [x for x, _y in glyph.coordinates]
         self.assertEqual(max(xs), 600)
         self.assertEqual(min(xs), 600 - width)
 
+    def test_lsb_matches_the_outlines_true_xmin(self):
+        # Regression: hmtx lsb was hardcoded to 0 while the outline's real
+        # xMin was very negative -- that mismatch made real rendering
+        # stacks (confirmed in Chromium) reposition the ink to start at
+        # x=0, visually shifting every badge to the right.
+        glyph, _advance, lsb = build_badge_glyph("[INFO]", self.letter_font, "pill")
+        xs = [x for x, _y in glyph.coordinates]
+        self.assertEqual(lsb, min(xs))
+
     def test_produces_a_hole_not_a_solid_shape(self):
         # Regression: an earlier draft added a spurious contour-reversal
         # that canceled the pre-existing opposite winding back out,
         # producing a solid badge with no visible letter cutout.
-        glyph, _advance = build_badge_glyph("[INFO]", self.letter_font, "pill")
+        glyph, _advance, _lsb = build_badge_glyph("[INFO]", self.letter_font, "pill")
         self.assertGreater(glyph.numberOfContours, 1)
 
     def test_square_corners_when_radius_is_zero(self):
-        glyph, _advance = build_badge_glyph("[INFO]", self.letter_font, 0)
+        glyph, _advance, _lsb = build_badge_glyph("[INFO]", self.letter_font, 0)
         self.assertGreater(glyph.numberOfContours, 1)
 
     def test_missing_letter_raises(self):

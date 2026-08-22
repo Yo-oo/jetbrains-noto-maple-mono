@@ -169,11 +169,11 @@ def apply_tag_ligatures(
 
     for index, text in enumerate(tags):
         badge_name = _badge_glyph_name(index)
-        glyph, advance = build_badge_glyph(
+        glyph, advance, lsb = build_badge_glyph(
             text, letter_font, corner_radius, italic_angle=italic_angle
         )
         base_glyf[badge_name] = glyph
-        base_hmtx[badge_name] = (advance, 0)
+        base_hmtx[badge_name] = (advance, lsb)
         if badge_name not in glyph_order:
             glyph_order.append(badge_name)
 
