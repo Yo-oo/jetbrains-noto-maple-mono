@@ -35,32 +35,37 @@ on:
           - jp
           - kr
       fill_ratio:
-        description: 'Override cjk.fill_ratio, e.g. 0.88 (blank = use config.json)'
+        description: 'Override cjk.fill_ratio, e.g. 0.88 (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       italic_angle:
-        description: 'Override cjk.italic_angle in degrees, e.g. 9.0 (blank = use config.json)'
+        description: 'Override cjk.italic_angle in degrees, e.g. 9.0 (blank = use config.jsonc)'
+        required: false
+        default: ''
+        type: string
+      badge_weight:
+        description: 'Override tags.badge_weight, e.g. Bold (blank = use config.jsonc)'
+        required: false
+        default: ''
+        type: string
+      corner_radius:
+        description: "Override tags.corner_radius: 'pill' or a number 0-660 (blank = use config.jsonc)"
         required: false
         default: ''
         type: string
       jetbrains_mono_version:
-        description: 'Override upstream_versions.jetbrains_mono for this run only, e.g. 2.304 (blank = use config.json; never affects release.yml)'
+        description: 'Override upstream_versions.jetbrains_mono for this run only, e.g. 2.304 (blank = use config.jsonc; never affects release.yml)'
         required: false
         default: ''
         type: string
       noto_cjk_release_tag:
-        description: 'Override upstream_versions.noto_cjk_release_tag for this run only, e.g. Sans2.004 (blank = use config.json)'
-        required: false
-        default: ''
-        type: string
-      maple_mono_version:
-        description: 'Override upstream_versions.maple_mono for this run only, e.g. 7.9 (blank = use config.json)'
+        description: 'Override upstream_versions.noto_cjk_release_tag for this run only, e.g. Sans2.004 (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
       nerd_fonts_version:
-        description: 'Override upstream_versions.nerd_fonts for this run only, e.g. v3.5.0 (blank = use config.json)'
+        description: 'Override upstream_versions.nerd_fonts for this run only, e.g. v3.5.0 (blank = use config.jsonc)'
         required: false
         default: ''
         type: string
@@ -95,9 +100,10 @@ jobs:
             ${{ github.event.inputs.nerd_font == 'true' && '--nerd-font' || '' }} \
             ${{ github.event.inputs.fill_ratio != '' && format('--fill-ratio {0}', github.event.inputs.fill_ratio) || '' }} \
             ${{ github.event.inputs.italic_angle != '' && format('--italic-angle {0}', github.event.inputs.italic_angle) || '' }} \
+            ${{ github.event.inputs.badge_weight != '' && format('--badge-weight {0}', github.event.inputs.badge_weight) || '' }} \
+            ${{ github.event.inputs.corner_radius != '' && format('--corner-radius {0}', github.event.inputs.corner_radius) || '' }} \
             ${{ github.event.inputs.jetbrains_mono_version != '' && format('--jetbrains-mono-version {0}', github.event.inputs.jetbrains_mono_version) || '' }} \
             ${{ github.event.inputs.noto_cjk_release_tag != '' && format('--noto-cjk-release-tag {0}', github.event.inputs.noto_cjk_release_tag) || '' }} \
-            ${{ github.event.inputs.maple_mono_version != '' && format('--maple-mono-version {0}', github.event.inputs.maple_mono_version) || '' }} \
             ${{ github.event.inputs.nerd_fonts_version != '' && format('--nerd-fonts-version {0}', github.event.inputs.nerd_fonts_version) || '' }}
 
       - name: Verify build output

@@ -53,8 +53,8 @@ def verify_font(path: Path) -> list[str]:
                 )
 
     glyph_names = set(font.getGlyphOrder())
-    if "tag_info.liga" not in glyph_names:
-        problems.append("missing tag_info.liga -- tag ligature grafting may have failed")
+    if "SPC" not in glyph_names or "tag_badge.0" not in glyph_names:
+        problems.append("missing SPC/tag_badge.0 -- tag ligature wiring may have failed")
 
     if "GSUB" not in font:
         problems.append("no GSUB table at all")

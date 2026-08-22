@@ -1,8 +1,8 @@
-"""Fetch and cache the three upstream releases this project layers together.
+"""Fetch and cache the upstream releases this project layers together.
 
 Every function downloads once and reuses the cached file on later runs
 (cache lives under dist/upstream/, which .gitignore excludes). Version
-pins live in config.json (single source of truth, also read by
+pins live in config.jsonc (single source of truth, also read by
 check_upstream_versions.py) -- re-running the pipeline against a newer
 upstream version is just bumping the relevant version there, no vendored/
 forked upstream code to keep in sync.
@@ -25,9 +25,9 @@ _upstream_versions = load_config()["upstream_versions"]
 
 # Every *_path()/*_VERSION function below takes an optional version override
 # (build.py wires these to --jetbrains-mono-version etc., in turn wired to
-# build.yml's workflow_dispatch inputs) -- config.json's pins are still the
+# build.yml's workflow_dispatch inputs) -- config.jsonc's pins are still the
 # DEFAULT, and release.yml never passes an override, so a real release only
-# ever uses what's pinned and reviewed in config.json. Overrides exist for
+# ever uses what's pinned and reviewed in config.jsonc. Overrides exist for
 # ad-hoc build.yml runs (write-access collaborators only, artifact-only
 # output, no Release created -- see conversation), not for loosening what
 # ships publicly.
@@ -52,10 +52,7 @@ NOTO_CJK_VF_MEMBERS = {
     "hk": "Variable/TTF/NotoSansCJKhk-VF.ttf",
 }
 
-MAPLE_MONO_VERSION = _upstream_versions["maple_mono"]
-MAPLE_MONO_ASSET = "MapleMono-TTF.zip"
-
-WEIGHTS = ("Thin", "ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold")
+WEIGHTS =("Thin", "ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold")
 WEIGHT_VALUES = {
     "Thin": 100,
     "ExtraLight": 200,
@@ -138,17 +135,6 @@ def noto_cjk_weight_instance_path(
     source = TTFont(str(noto_cjk_variable_path(locale, version)))
     instance = instantiateVariableFont(source, {"wght": float(weight_value)}, inplace=False)
     return save_font_atomic(instance, dest)
-
-
-def maple_mono_path(weight: str, italic: bool = False, version: str | None = None) -> Path:
-    version = version or MAPLE_MONO_VERSION
-    suffix = style_suffix(weight, italic)
-    url = (
-        f"https://github.com/subframe7536/maple-font/releases/download/"
-        f"v{version}/{MAPLE_MONO_ASSET}"
-    )
-    dest = UPSTREAM_DIR / "maple-mono" / version / f"MapleMono-{suffix}.ttf"
-    return _extract_member(url, f"MapleMono-{suffix}.ttf", dest)
 
 
 NERD_FONT_VERSION = _upstream_versions["nerd_fonts"]

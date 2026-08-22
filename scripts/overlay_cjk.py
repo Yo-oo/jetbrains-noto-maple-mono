@@ -12,7 +12,7 @@ Source is glyf (TrueType), not CFF, but the Cu2QuPen conversion step below
 is kept anyway -- verified it passes already-quadratic input through
 unchanged, so this works for either outline format without a branch.
 
-Source-of-truth per codepoint: the configured Han-priority locale (config.json's
+Source-of-truth per codepoint: the configured Han-priority locale (config.jsonc's
 cjk.han_priority, default "tc") for Han shapes + shared CJK punctuation/
 symbols/bopomofo, overridden by jp for kana and kr for hangul regardless of
 that setting -- kana and hangul aren't regionally ambiguous the way Han is
@@ -73,7 +73,7 @@ from scripts.config import load_config
 
 # Shrink toward cell center by this fraction (1.0 = no shrink) -- see module
 # docstring. Tune by eye against a reference font; not derived from metrics.
-# Pinned in config.json (cjk.fill_ratio), not here, so every tunable knob
+# Pinned in config.jsonc (cjk.fill_ratio), not here, so every tunable knob
 # this project exposes lives in one place.
 CJK_FILL_RATIO = load_config()["cjk"]["fill_ratio"]
 
@@ -103,7 +103,7 @@ def build_codepoint_source_map(
 ) -> dict[int, tuple[TTFont, str]]:
     """Return {codepoint: (source_font, glyph_name)}, han_font-wide with jp/kr overrides.
 
-    han_font is whichever locale config.json's cjk.han_priority selects (tc
+    han_font is whichever locale config.jsonc's cjk.han_priority selects (tc
     by default) -- covers Han + shared CJK punctuation/symbols/bopomofo.
     jp/kr overrides for kana/hangul are unconditional, not affected by that
     setting (see module docstring: those scripts aren't regionally

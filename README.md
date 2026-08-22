@@ -4,7 +4,7 @@ A monospace font that fuses:
 
 - **[JetBrains Mono](https://github.com/JetBrains/JetBrainsMono)** — base Latin letterforms and native code ligatures
 - **[Noto Sans CJK](https://github.com/notofonts/noto-cjk)** — Chinese/Japanese/Korean glyphs, scaled to exactly twice the Latin advance width
-- **[Maple Mono](https://github.com/subframe7536/maple-font)** — the plain-text tag ligature engine (`[INFO]`, `[WARN]`, `[ERROR]`, ...)
+- Plain-text tag ligatures (`[INFO]`, `[WARN]`, `[ERROR]`, ...), drawn as rounded badges — a convention inspired by [Maple Mono](https://github.com/subframe7536/maple-font), but generated fresh (no Maple Mono files are downloaded or used)
 - **[Nerd Fonts](https://github.com/ryanoasis/nerd-fonts)** (optional, separate `NF` release variant) — terminal/editor icon glyphs, copied from Nerd Fonts' own pre-patched JetBrains Mono release
 
 ## Features
@@ -12,7 +12,7 @@ A monospace font that fuses:
 - 8 weights (Thin–ExtraBold), each with Regular and Italic
 - Plain and `NF` (Nerd Font icons) variants, installable side by side
 - TTF and WOFF2 formats
-- Maple Mono tag ligatures (`[INFO]`, `[WARN]`, `[ERROR]`, ...) — see [OpenType Features](#opentype-features)
+- Self-generated tag ligature badges (`[INFO]`, `[WARN]`, `[ERROR]`, ...) — see [OpenType Features](#opentype-features)
 
 ## OpenType Features
 
@@ -22,14 +22,14 @@ This project's only differences:
 
 | Feature | Difference                                                                                                                                                                                                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `calt`  | In addition to JetBrains Mono's native ligatures, also includes Maple Mono-style plain-text tag ligatures (`[INFO]`, `[WARN]`, `[ERROR]`, ...) drawn as rounded badges, triggered only on exact uppercase. |
+| `calt`  | In addition to JetBrains Mono's native ligatures, also includes plain-text tag ligatures (`[INFO]`, `[WARN]`, `[ERROR]`, ...) drawn as rounded badges, triggered only on exact uppercase. |
 | `ss03`  | New feature, not present in JetBrains Mono. Same tag badges as above, but case-insensitive (`[info]`, `[Info]`, `[INFO]` all trigger) — must be enabled manually.                                          |
 
 ## Why this exists
 
 Font fallback across separate Latin and CJK font files can't guarantee CJK glyphs land at exactly 2x the Latin advance width — each font defines its own metrics independently, so mixed Latin/CJK text drifts out of alignment column by column in a monospace layout. Baking both into a single font file lets the CJK glyphs be scaled and shifted to match the Latin grid exactly.
 
-This project builds by layering official upstream releases rather than forking any upstream's build system: download JetBrains Mono + Noto Sans CJK releases, overlay CJK glyphs onto the JetBrains base (new codepoints only, no overwriting), graft Maple Mono's tag ligature rules on top (compiled fresh from source, not copied from a compiled binary), and optionally copy Nerd Font icon glyphs from Nerd Fonts' own pre-patched JetBrains Mono release. Each step only _adds_ glyphs/rules the base doesn't already have, so there's no feature-conflict cleanup to maintain — and tracking upstream updates is just re-running the pipeline against new release URLs.
+This project builds by layering official upstream releases rather than forking any upstream's build system: download JetBrains Mono + Noto Sans CJK releases, overlay CJK glyphs onto the JetBrains base (new codepoints only, no overwriting), generate and wire up plain-text tag ligature badges fresh (rounded-rect artwork drawn from JetBrains Mono's own letterforms, not copied from any other font), and optionally copy Nerd Font icon glyphs from Nerd Fonts' own pre-patched JetBrains Mono release. Each step only _adds_ glyphs/rules the base doesn't already have, so there's no feature-conflict cleanup to maintain — and tracking upstream updates is just re-running the pipeline against new release URLs.
 
 ## Building from source
 
@@ -40,7 +40,7 @@ pip install .
 python -m scripts.build --weights regular,bold --styles regular,italic --nerd-font
 ```
 
-Output lands in `dist/fonts/` (both `.ttf` and `.woff2`). Run `python -m scripts.build --help` for the full list of flags (weights, styles, Nerd Font, Han-priority locale, and per-build overrides for every `config.json` value).
+Output lands in `dist/fonts/` (both `.ttf` and `.woff2`). Run `python -m scripts.build --help` for the full list of flags (weights, styles, Nerd Font, Han-priority locale, and per-build overrides for every `config.jsonc` value).
 
 ### Via GitHub Actions
 
@@ -48,17 +48,20 @@ Fork this repo and run the **Build** workflow (Actions tab → Build → Run wor
 
 ## Configuration
 
-All tunable values live in `config.json`.
+All tunable values live in `config.jsonc`.
 
 | Key                   | Meaning                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------- |
 | `family_name`         | Base font family name prefix (Han-priority locale and `Mono`/`NF` are appended automatically — see `scripts/naming.py`). |
-| `upstream_versions.*` | JetBrains Mono / Noto Sans CJK / Maple Mono / Nerd Fonts versions to build against.   |
+| `upstream_versions.*` | JetBrains Mono / Noto Sans CJK / Nerd Fonts versions to build against.                |
 | `cjk.fill_ratio`      | CJK glyph ink shrink-toward-center ratio (cosmetic).                                  |
 | `cjk.italic_angle`    | Synthetic CJK italic shear angle, matched to JetBrains Mono's own.                    |
 | `cjk.han_priority`    | Which locale (`tc`/`hk`/`sc`/`jp`/`kr`) provides Han + shared CJK punctuation glyphs. |
+| `tags.badge_weight`   | Weight to draw tag badge lettering with (e.g. `"SemiBold"`), or `null` to follow the build's own weight. |
+| `tags.corner_radius`  | `"pill"` (half the cell height) or a number 0-660 in font units. `0` = square corners. |
+| `tags.list`           | Array of tag strings (e.g. `["[INFO]", "[WARN]"]`), or `null` to disable tag ligatures entirely. |
 | `build_defaults.*`    | Default `--weights`/`--styles`/`--nerd-font` when not passed on the CLI.              |
 
 ## License
 
-SIL Open Font License 1.1. See [OFL.txt](./OFL.txt) — JetBrains Mono, Maple Mono, Google (Noto Sans CJK), Adobe (Source Han Sans, Reserved Font Name `Source`), and Nerd Fonts are all credited there.
+SIL Open Font License 1.1. See [OFL.txt](./OFL.txt) — JetBrains Mono, Google (Noto Sans CJK), Adobe (Source Han Sans, Reserved Font Name `Source`), and Nerd Fonts are all credited there (this project's Font Software includes files from each of them; Maple Mono is a design inspiration for the tag ligature convention only — no Maple Mono files are used).

@@ -1,9 +1,9 @@
 """Check whether any pinned upstream release has a newer version available.
 
-This project deliberately pins exact upstream versions (config.json's
+This project deliberately pins exact upstream versions (config.jsonc's
 upstream_versions, surfaced as download.py's JETBRAINS_MONO_VERSION/
-NOTO_CJK_RELEASE_TAG/MAPLE_MONO_VERSION/NERD_FONT_VERSION) for reproducible
-builds -- nothing auto-updates them. This script is the other half of that
+NOTO_CJK_RELEASE_TAG/NERD_FONT_VERSION) for reproducible builds -- nothing
+auto-updates them. This script is the other half of that
 tradeoff: a cheap way to find out
 when a bump is available, without silently rebuilding against a moving
 target. Wired into a scheduled workflow that opens a GitHub Issue rather
@@ -25,7 +25,6 @@ from urllib.request import Request, urlopen
 
 from scripts.download import (
     JETBRAINS_MONO_VERSION,
-    MAPLE_MONO_VERSION,
     NERD_FONT_VERSION,
     NOTO_CJK_RELEASE_TAG,
 )
@@ -53,7 +52,6 @@ def _latest_matching_release_tag(repo: str, prefix: str) -> str:
 CHECKS = (
     ("JetBrains Mono", f"v{JETBRAINS_MONO_VERSION}", lambda: _latest_release_tag("JetBrains/JetBrainsMono")),
     ("Noto Sans CJK", NOTO_CJK_RELEASE_TAG, lambda: _latest_matching_release_tag("notofonts/noto-cjk", "Sans")),
-    ("Maple Mono", f"v{MAPLE_MONO_VERSION}", lambda: _latest_release_tag("subframe7536/maple-font")),
     ("Nerd Fonts", NERD_FONT_VERSION, lambda: _latest_release_tag("ryanoasis/nerd-fonts")),
 )
 

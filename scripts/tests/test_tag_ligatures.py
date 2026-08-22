@@ -12,28 +12,37 @@ import unittest
 
 from fontTools.ttLib import TTFont
 
-from scripts.download import jetbrains_mono_path, maple_mono_path
+from scripts.download import jetbrains_mono_path
 from scripts.tag_ligatures import apply_tag_ligatures
+
+TEST_TAGS = ["[INFO]", "[WARN]", "[ERROR]", "::FIX::"]
 
 
 class TagLigaturesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.font = TTFont(str(jetbrains_mono_path("Regular")))
-        cls.tag_count = apply_tag_ligatures(cls.font, maple_mono_path("Regular"))
+        letter_font = TTFont(str(jetbrains_mono_path("Bold")))
+        cls.tag_count = apply_tag_ligatures(cls.font, TEST_TAGS, letter_font, "pill")
 
-    def test_grafts_at_least_maples_known_tags(self):
-        # Exact count depends on Maple's release (discovered dynamically,
-        # not hardcoded -- see tag_ligatures.py's docstring), but these
-        # specific ones have existed across many Maple releases.
-        self.assertGreaterEqual(self.tag_count, 10)
+    def test_wires_every_configured_tag(self):
+        self.assertEqual(self.tag_count, len(TEST_TAGS))
 
-    def test_badge_glyphs_and_placeholder_were_copied(self):
+    def test_badge_glyphs_and_placeholder_were_generated(self):
         names = set(self.font.getGlyphOrder())
         self.assertIn("SPC", names)
-        self.assertIn("tag_info.liga", names)
-        self.assertIn("tag_warn.liga", names)
-        self.assertIn("tag_error.liga", names)
+        for i in range(len(TEST_TAGS)):
+            self.assertIn(f"tag_badge.{i}", names)
+
+    def test_badge_glyph_has_a_hole_punched_through(self):
+        # A badge with real cutout text should have more than one contour
+        # (the rounded-rect background plus at least one letter hole) --
+        # this is the exact bug class the module docstring warns about
+        # (reversing contours that already have opposite winding cancels
+        # the hole back out, producing a solid, text-less badge).
+        glyf = self.font["glyf"]
+        badge = glyf["tag_badge.0"]  # "[INFO]" -- longest-first sort order
+        self.assertGreater(badge.numberOfContours, 1)
 
     def test_calt_feature_extended_not_replaced(self):
         gsub = self.font["GSUB"].table

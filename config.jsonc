@@ -1,0 +1,53 @@
+{
+  // Font family name prefix. "NF" and the Han-priority locale are appended
+  // automatically -- don't include those here.
+  "family_name": "Blanda JNM Mono",
+  // Pinned upstream release versions.
+  "upstream_versions": {
+    "jetbrains_mono": "2.304",
+    "noto_cjk_release_tag": "Sans2.004",
+    "nerd_fonts": "v3.5.0"
+  },
+  "cjk": {
+    // 0.0-1.0. Shrink each CJK glyph toward its cell's center (1.0 = no shrink).
+    "fill_ratio": 0.82,
+    // Synthetic CJK italic shear angle, in degrees.
+    "italic_angle": 9.0,
+    // "tc" | "hk" | "sc" | "jp" | "kr".
+    "han_priority": "tc"
+  },
+  "tags": {
+    // A JetBrains Mono weight name (e.g. "Bold", "ExtraBold"), or null to
+    // match whichever weight is being built.
+    "badge_weight": "SemiBold",
+    // "pill" (half the cell height), or a number 0-660 in font units. 0 = square.
+    "corner_radius": "pill",
+    // Array of tag strings, or null to disable tag ligatures entirely. Each
+    // entry is the exact literal text to match -- include any framing
+    // characters yourself (e.g. "[INFO]", not "INFO"). A tag with a plain
+    // letter/digit at either end prints a build warning (risk of matching
+    // as a substring of ordinary text) but is not blocked.
+    "list": [
+      "[DEBUG]",
+      "[EROR]",
+      "[ERROR]",
+      "[FATAL]",
+      "[FIXME]",
+      "[HACK]",
+      "[INFO]",
+      "[MARK]",
+      "[NOTE]",
+      "[TODO]",
+      "[TRACE]",
+      "[WARN]",
+      "[WARNING]"
+    ]
+  },
+  "build_defaults": {
+    // scripts.build CLI flag defaults.
+    "weights": "regular,bold",
+    "styles": "regular",
+    "nerd_font": false,
+    "formats": "ttf,woff2"
+  }
+}

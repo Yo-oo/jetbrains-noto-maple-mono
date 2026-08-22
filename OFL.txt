@@ -1,5 +1,4 @@
 Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
-Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font)
 Copyright 2021 Google Inc.
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
 Copyright 2014, Ryan L McIntyre (https://ryanlmcintyre.com), Nerd Fonts (https://github.com/ryanoasis/nerd-fonts)
